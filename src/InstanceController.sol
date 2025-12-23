@@ -28,6 +28,11 @@ contract InstanceController {
     bytes32 private constant CANCEL_UPGRADE_TYPEHASH = keccak256(
         "CancelUpgrade(bytes32 root,bytes32 uriHash,bytes32 policyHash,uint64 createdAt,uint64 ttlSec,uint256 deadline)"
     );
+    bytes32 private constant CHECKIN_TYPEHASH = keccak256(
+        "CheckIn(bytes32 observedRoot,bytes32 observedUriHash,bytes32 observedPolicyHash,uint256 nonce,uint256 deadline)"
+    );
+    bytes32 private constant REPORT_INCIDENT_TYPEHASH =
+        keccak256("ReportIncident(bytes32 incidentHash,uint256 nonce,uint256 deadline)");
 
     bytes4 private constant EIP1271_MAGICVALUE = 0x1626ba7e;
     uint256 private constant SECP256K1N_HALF = 0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0;
@@ -90,6 +95,9 @@ contract InstanceController {
     uint64 public lastIncidentAt;
     bytes32 public lastIncidentHash;
     address public lastIncidentBy;
+
+    uint256 public reporterNonce;
+    uint256 public incidentNonce;
 
     event Initialized(
         address indexed factory,
@@ -437,31 +445,42 @@ contract InstanceController {
         external
         onlyReporterAuthority
     {
-        bool ok = (!paused) && isAcceptedState(observedRoot, observedUriHash, observedPolicyHash);
+        reporterNonce += 1;
+        _checkIn(msg.sender, observedRoot, observedUriHash, observedPolicyHash);
+    }
 
-        lastCheckInAt = uint64(block.timestamp);
-        lastCheckInOk = ok;
+    function hashCheckIn(bytes32 observedRoot, bytes32 observedUriHash, bytes32 observedPolicyHash, uint256 deadline)
+        external
+        view
+        returns (bytes32)
+    {
+        bytes32 structHash = keccak256(
+            abi.encode(CHECKIN_TYPEHASH, observedRoot, observedUriHash, observedPolicyHash, reporterNonce, deadline)
+        );
+        return keccak256(abi.encodePacked("\x19\x01", domainSeparator(), structHash));
+    }
 
-        emit CheckIn(msg.sender, ok, observedRoot, observedUriHash, observedPolicyHash);
+    function checkInAuthorized(
+        bytes32 observedRoot,
+        bytes32 observedUriHash,
+        bytes32 observedPolicyHash,
+        uint256 deadline,
+        bytes calldata signature
+    ) external {
+        require(block.timestamp <= deadline, "InstanceController: expired");
+        address reporter = reporterAuthority;
+        require(reporter != address(0), "InstanceController: reporter not set");
 
-        if (autoPauseOnBadCheckIn && !paused && !ok) {
-            _recordIncident(
-                msg.sender,
-                keccak256(
-                    abi.encodePacked(
-                        "bad_checkin",
-                        observedRoot,
-                        observedUriHash,
-                        observedPolicyHash,
-                        activeRoot,
-                        activeUriHash,
-                        activePolicyHash
-                    )
-                )
-            );
-            paused = true;
-            emit Paused(msg.sender);
-        }
+        bytes32 structHash = keccak256(
+            abi.encode(CHECKIN_TYPEHASH, observedRoot, observedUriHash, observedPolicyHash, reporterNonce, deadline)
+        );
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator(), structHash));
+
+        require(_isValidSignatureNow(reporter, digest, signature), "InstanceController: invalid reporter signature");
+        emit AuthoritySignatureConsumed(reporter, digest, msg.sender);
+
+        reporterNonce += 1;
+        _checkIn(reporter, observedRoot, observedUriHash, observedPolicyHash);
     }
 
     function reportIncident(bytes32 incidentHash) external {
@@ -471,12 +490,28 @@ contract InstanceController {
             "InstanceController: not incident reporter"
         );
 
-        _recordIncident(msg.sender, incidentHash);
+        incidentNonce += 1;
+        _reportIncident(msg.sender, incidentHash);
+    }
 
-        if (!paused) {
-            paused = true;
-            emit Paused(msg.sender);
-        }
+    function hashReportIncident(bytes32 incidentHash, uint256 deadline) external view returns (bytes32) {
+        bytes32 structHash = keccak256(abi.encode(REPORT_INCIDENT_TYPEHASH, incidentHash, incidentNonce, deadline));
+        return keccak256(abi.encodePacked("\x19\x01", domainSeparator(), structHash));
+    }
+
+    function reportIncidentAuthorized(bytes32 incidentHash, uint256 deadline, bytes calldata signature) external {
+        require(block.timestamp <= deadline, "InstanceController: expired");
+        require(incidentHash != bytes32(0), "InstanceController: incidentHash=0");
+
+        bytes32 structHash = keccak256(abi.encode(REPORT_INCIDENT_TYPEHASH, incidentHash, incidentNonce, deadline));
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator(), structHash));
+
+        address authority = _resolveIncidentSigner(digest, signature);
+        require(authority != address(0), "InstanceController: invalid incident signature");
+        emit AuthoritySignatureConsumed(authority, digest, msg.sender);
+
+        incidentNonce += 1;
+        _reportIncident(authority, incidentHash);
     }
 
     function proposeUpgrade(bytes32 root, bytes32 uriHash, bytes32 policyHash, uint64 ttlSec)
@@ -756,6 +791,62 @@ contract InstanceController {
         lastIncidentHash = incidentHash;
         lastIncidentBy = by;
         emit IncidentReported(by, incidentHash, uint64(block.timestamp));
+    }
+
+    function _checkIn(address by, bytes32 observedRoot, bytes32 observedUriHash, bytes32 observedPolicyHash) private {
+        bool ok = (!paused) && isAcceptedState(observedRoot, observedUriHash, observedPolicyHash);
+
+        lastCheckInAt = uint64(block.timestamp);
+        lastCheckInOk = ok;
+
+        emit CheckIn(by, ok, observedRoot, observedUriHash, observedPolicyHash);
+
+        if (autoPauseOnBadCheckIn && !paused && !ok) {
+            _recordIncident(
+                by,
+                keccak256(
+                    abi.encodePacked(
+                        "bad_checkin",
+                        observedRoot,
+                        observedUriHash,
+                        observedPolicyHash,
+                        activeRoot,
+                        activeUriHash,
+                        activePolicyHash
+                    )
+                )
+            );
+            paused = true;
+            emit Paused(by);
+        }
+    }
+
+    function _reportIncident(address by, bytes32 incidentHash) private {
+        _recordIncident(by, incidentHash);
+
+        if (!paused) {
+            paused = true;
+            emit Paused(by);
+        }
+    }
+
+    function _resolveIncidentSigner(bytes32 digest, bytes memory signature) private view returns (address) {
+        address root = rootAuthority;
+        if (_isValidSignatureNow(root, digest, signature)) {
+            return root;
+        }
+
+        address emergency = emergencyAuthority;
+        if (_isValidSignatureNow(emergency, digest, signature)) {
+            return emergency;
+        }
+
+        address reporter = reporterAuthority;
+        if (reporter != address(0) && _isValidSignatureNow(reporter, digest, signature)) {
+            return reporter;
+        }
+
+        return address(0);
     }
 
     function snapshot()

@@ -506,6 +506,69 @@ contract InstanceControllerTest is TestBase {
         controller.checkIn(genesisRoot, genesisUriHash, genesisPolicyHash);
     }
 
+    function test_checkInAuthorized_accepts_eoa_reporter_signature_and_increments_nonce() public {
+        uint256 reporterPk = 0xA11CE;
+        address reporter = vm.addr(reporterPk);
+
+        vm.prank(root);
+        controller.startReporterAuthorityTransfer(reporter);
+
+        vm.prank(reporter);
+        controller.acceptReporterAuthority();
+
+        uint256 deadline = block.timestamp + 3600;
+        bytes32 digest = controller.hashCheckIn(genesisRoot, genesisUriHash, genesisPolicyHash, deadline);
+        bytes memory sig = _sign(reporterPk, digest);
+
+        uint256 nonceBefore = controller.reporterNonce();
+        controller.checkInAuthorized(genesisRoot, genesisUriHash, genesisPolicyHash, deadline, sig);
+
+        assertEq(controller.reporterNonce(), nonceBefore + 1, "reporterNonce not incremented");
+        assertTrue(controller.lastCheckInOk(), "authorized checkIn should be ok");
+
+        vm.expectRevert("InstanceController: invalid reporter signature");
+        controller.checkInAuthorized(genesisRoot, genesisUriHash, genesisPolicyHash, deadline, sig);
+    }
+
+    function test_checkInAuthorized_accepts_kernelAuthority_reporter_signature() public {
+        uint256 pk1 = 0xA11CE;
+        uint256 pk2 = 0xB0B;
+        address a1 = vm.addr(pk1);
+        address a2 = vm.addr(pk2);
+
+        address[] memory signers = new address[](2);
+        if (a1 < a2) {
+            signers[0] = a1;
+            signers[1] = a2;
+        } else {
+            signers[0] = a2;
+            signers[1] = a1;
+        }
+        KernelAuthority reporterAuth = new KernelAuthority(signers, 2);
+
+        vm.prank(root);
+        controller.startReporterAuthorityTransfer(address(reporterAuth));
+
+        vm.prank(address(reporterAuth));
+        controller.acceptReporterAuthority();
+
+        uint256 deadline = block.timestamp + 3600;
+        bytes32 digest = controller.hashCheckIn(genesisRoot, genesisUriHash, genesisPolicyHash, deadline);
+
+        bytes[] memory sigs = new bytes[](2);
+        if (a1 < a2) {
+            sigs[0] = _sign(pk1, digest);
+            sigs[1] = _sign(pk2, digest);
+        } else {
+            sigs[0] = _sign(pk2, digest);
+            sigs[1] = _sign(pk1, digest);
+        }
+        bytes memory packed = abi.encode(sigs);
+
+        controller.checkInAuthorized(genesisRoot, genesisUriHash, genesisPolicyHash, deadline, packed);
+        assertTrue(controller.lastCheckInOk(), "authorized checkIn should be ok");
+    }
+
     function test_autoPauseOnBadCheckIn_pauses_and_records_incident() public {
         address reporter = address(0x7777777777777777777777777777777777777777);
 
@@ -543,6 +606,30 @@ contract InstanceControllerTest is TestBase {
         assertTrue(controller.paused(), "controller should pause on incident");
         assertEq(controller.lastIncidentHash(), incidentHash, "incident hash mismatch");
         assertEq(controller.lastIncidentBy(), reporter, "incident by mismatch");
+    }
+
+    function test_reportIncidentAuthorized_accepts_root_signature_and_is_not_replayable() public {
+        uint256 rootPk = 0xA11CE;
+        address rootAddr = vm.addr(rootPk);
+
+        InstanceFactory f = new InstanceFactory(address(0));
+        InstanceController c = InstanceController(
+            f.createInstance(rootAddr, upgrader, emergency, genesisRoot, genesisUriHash, genesisPolicyHash)
+        );
+
+        bytes32 incidentHash = keccak256("incident-auth");
+        uint256 deadline = block.timestamp + 3600;
+        bytes32 digest = c.hashReportIncident(incidentHash, deadline);
+        bytes memory sig = _sign(rootPk, digest);
+
+        uint256 nonceBefore = c.incidentNonce();
+        c.reportIncidentAuthorized(incidentHash, deadline, sig);
+
+        assertTrue(c.paused(), "controller should pause on authorized incident");
+        assertEq(c.incidentNonce(), nonceBefore + 1, "incidentNonce not incremented");
+
+        vm.expectRevert("InstanceController: invalid incident signature");
+        c.reportIncidentAuthorized(incidentHash, deadline, sig);
     }
 
     function _sign(uint256 pk, bytes32 digest) private returns (bytes memory) {

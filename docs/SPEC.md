@@ -157,6 +157,14 @@ Authorized upgrade actions (optional, for relayers):
   - `activateUpgradeAuthorized(...)` / `cancelUpgradeAuthorized(...)` accept signatures from `rootAuthority` (EOA or EIP-1271 contract).
   - The controller emits `AuthoritySignatureConsumed(authority, digest, relayer)` for audit traces.
 
+Authorized monitoring / incidents (optional, for relayers):
+- `checkInAuthorized(...)`:
+  - signature must be from `reporterAuthority` (EOA or EIP-1271),
+  - digest includes `reporterNonce` (anti-replay); nonce is consumed by both `checkIn` and `checkInAuthorized`.
+- `reportIncidentAuthorized(...)`:
+  - signature may be from `rootAuthority`, `emergencyAuthority`, or `reporterAuthority` (if set),
+  - digest includes `incidentNonce` (anti-replay); nonce is consumed by both `reportIncident` and `reportIncidentAuthorized`.
+
 If `releaseRegistry` is set:
 - `initialize(...)` requires the genesis `root` to be trusted in the registry.
 - `proposeUpgrade(...)` and `activateUpgrade()` require the proposed root to be trusted at the time of the call.
@@ -168,8 +176,13 @@ Emergency flow:
 
 Monitoring / check-ins (v1):
 - `checkIn(observedRoot, observedUriHash, observedPolicyHash)` (reporter authority)
+- Optional: `checkInAuthorized(...)` allows a relayer to submit a `reporterAuthority` EIP-712 signature (EOA or EIP-1271).
 - The controller records `(lastCheckInAt, lastCheckInOk)` for off-chain health evaluation.
 - If `autoPauseOnBadCheckIn` is enabled, a bad check-in pauses the controller and records an incident.
+
+Incident reporting (v1):
+- `reportIncident(incidentHash)` (root/emergency/reporter)
+- Optional: `reportIncidentAuthorized(...)` allows a relayer to submit an EIP-712 signature from one of `{rootAuthority, emergencyAuthority, reporterAuthority}`.
 
 Runtime optimization (v1):
 - `snapshot()` aggregates the commonly-read state (paused + active hashes + pending proposal) into one `eth_call`.
