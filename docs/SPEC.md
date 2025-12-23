@@ -48,6 +48,19 @@ Install-time selectable (with cost estimation):
 
 The contracts store hashes and emit events; full payloads are handled off-chain.
 
+## Hashing (v1 canonical)
+
+The contracts **do not** compute these values on-chain in v1. They are computed off-chain and stored as `bytes32`.
+
+Canonical algorithms (single source of truth lives in `blackcat-integrity`):
+
+- `root`: Merkle/tree root computed by `blackcat-integrity/src/TrustKernel/Sha256Merkle.php`
+  - leaf: `sha256(0x00 || path || 0x00 || fileHashBytes32)`
+  - node: `sha256(0x01 || left || right)` (duplicate last on odd count)
+  - entries are sorted lexicographically by normalized path.
+- `uriHash`: `sha256(uri_string_bytes)` (exact bytes; no implicit normalization).
+- `policyHash`: `sha256(canonical_json(policy))` where canonical JSON is defined by `blackcat-integrity/src/TrustKernel/CanonicalJson.php` and policy schema by `blackcat-integrity/src/TrustKernel/TrustPolicyV1.php`.
+
 ## On-chain components
 
 ### `ReleaseRegistry` (global)
@@ -120,4 +133,3 @@ Setup is done on a separate device:
 - EIP-712 “setup request” format for offline review (optional if Safe is used end-to-end).
 - Whether `InstanceController` should reference `ReleaseRegistry` (version-based activation) instead of raw roots.
 - Detailed `full` mode encoding strategy (chunking, gas ceilings, pruning).
-
