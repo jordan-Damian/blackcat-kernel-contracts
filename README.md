@@ -63,6 +63,7 @@ Scripts live in `blackcat-kernel-contracts/script/` and intentionally avoid exte
   - `blackcat-kernel-contracts/script/ProposeUpgradeByRelease.s.sol`
   - `blackcat-kernel-contracts/script/ActivateUpgradeExpected.s.sol`
   - `blackcat-kernel-contracts/script/CancelUpgradeExpected.s.sol`
+- Pause/unpause: `blackcat-kernel-contracts/script/Pause.s.sol`, `blackcat-kernel-contracts/script/Unpause.s.sol`
 - Upload ManifestStore blobs: `blackcat-kernel-contracts/script/UploadManifestBlob.s.sol`
 
 **Note:** contracts are not audited. Do not use in production until reviewed.

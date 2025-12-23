@@ -68,6 +68,48 @@ contract InstanceControllerTest is TestBase {
         controller.pause();
     }
 
+    function test_setPausedAuthorized_accepts_emergency_signature_and_is_not_replayable() public {
+        uint256 emergencyPk = 0xBEEF;
+        address emergencyAddr = vm.addr(emergencyPk);
+
+        InstanceFactory f = new InstanceFactory(address(0));
+        InstanceController c = InstanceController(
+            f.createInstance(root, upgrader, emergencyAddr, genesisRoot, genesisUriHash, genesisPolicyHash)
+        );
+
+        assertTrue(!c.paused(), "should start unpaused");
+
+        uint256 deadline = block.timestamp + 3600;
+        bytes32 unpauseDigest = c.hashSetPaused(true, false, deadline);
+        bytes memory unpauseSig = _sign(emergencyPk, unpauseDigest);
+
+        bytes32 pauseDigest = c.hashSetPaused(false, true, deadline);
+        bytes memory pauseSig = _sign(emergencyPk, pauseDigest);
+
+        c.setPausedAuthorized(false, true, deadline, pauseSig);
+        assertTrue(c.paused(), "should be paused");
+
+        vm.expectRevert("InstanceController: invalid pause signature");
+        c.setPausedAuthorized(true, false, deadline, unpauseSig);
+    }
+
+    function test_setPausedAuthorized_rejects_when_state_mismatch() public {
+        uint256 emergencyPk = 0xBEEF;
+        address emergencyAddr = vm.addr(emergencyPk);
+
+        InstanceFactory f = new InstanceFactory(address(0));
+        InstanceController c = InstanceController(
+            f.createInstance(root, upgrader, emergencyAddr, genesisRoot, genesisUriHash, genesisPolicyHash)
+        );
+
+        uint256 deadline = block.timestamp + 3600;
+        bytes32 digest = c.hashSetPaused(true, false, deadline);
+        bytes memory sig = _sign(emergencyPk, digest);
+
+        vm.expectRevert("InstanceController: paused mismatch");
+        c.setPausedAuthorized(true, false, deadline, sig);
+    }
+
     function test_authority_rotation_only_root() public {
         address newRoot = address(0x4444444444444444444444444444444444444444);
         address newUpgrade = address(0x5555555555555555555555555555555555555555);

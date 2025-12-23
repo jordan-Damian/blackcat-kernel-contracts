@@ -164,6 +164,9 @@ Authorized monitoring / incidents (optional, for relayers):
 - `reportIncidentAuthorized(...)`:
   - signature may be from `rootAuthority`, `emergencyAuthority`, or `reporterAuthority` (if set),
   - digest includes `incidentNonce` (anti-replay); nonce is consumed by both `reportIncident` and `reportIncidentAuthorized`.
+- `setPausedAuthorized(...)`:
+  - signature may be from `rootAuthority` or `emergencyAuthority`,
+  - digest includes `pauseNonce` (anti-replay); nonce is consumed by both `pause/unpause` and `setPausedAuthorized`.
 
 If `releaseRegistry` is set:
 - `initialize(...)` requires the genesis `root` to be trusted in the registry.
@@ -173,6 +176,7 @@ Emergency flow:
 - `pause()` / `unpause()` (emergency authority)
 - Root authority can also pause/unpause as a fallback (recommended).
 - `reportIncident(incidentHash)` can be called by root/emergency/reporter and will pause the controller and record incident metadata.
+- Optional: `setPausedAuthorized(...)` allows a relayer to set pause/unpause using an EIP-712 signature from `rootAuthority` or `emergencyAuthority`.
 
 Monitoring / check-ins (v1):
 - `checkIn(observedRoot, observedUriHash, observedPolicyHash)` (reporter authority)

@@ -33,6 +33,8 @@ contract InstanceController {
     );
     bytes32 private constant REPORT_INCIDENT_TYPEHASH =
         keccak256("ReportIncident(bytes32 incidentHash,uint256 nonce,uint256 deadline)");
+    bytes32 private constant SET_PAUSED_TYPEHASH =
+        keccak256("SetPaused(bool expectedPaused,bool newPaused,uint256 nonce,uint256 deadline)");
 
     bytes4 private constant EIP1271_MAGICVALUE = 0x1626ba7e;
     uint256 private constant SECP256K1N_HALF = 0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0;
@@ -98,6 +100,7 @@ contract InstanceController {
 
     uint256 public reporterNonce;
     uint256 public incidentNonce;
+    uint256 public pauseNonce;
 
     event Initialized(
         address indexed factory,
@@ -223,16 +226,39 @@ contract InstanceController {
 
     function pause() external onlyEmergencyOrRootAuthority {
         if (!paused) {
-            paused = true;
-            emit Paused(msg.sender);
+            pauseNonce += 1;
+            _setPaused(msg.sender, true);
         }
     }
 
     function unpause() external onlyEmergencyOrRootAuthority {
         if (paused) {
-            paused = false;
-            emit Unpaused(msg.sender);
+            pauseNonce += 1;
+            _setPaused(msg.sender, false);
         }
+    }
+
+    function hashSetPaused(bool expectedPaused, bool newPaused, uint256 deadline) external view returns (bytes32) {
+        bytes32 structHash = keccak256(abi.encode(SET_PAUSED_TYPEHASH, expectedPaused, newPaused, pauseNonce, deadline));
+        return keccak256(abi.encodePacked("\x19\x01", domainSeparator(), structHash));
+    }
+
+    function setPausedAuthorized(bool expectedPaused, bool newPaused, uint256 deadline, bytes calldata signature)
+        external
+    {
+        require(block.timestamp <= deadline, "InstanceController: expired");
+        require(expectedPaused != newPaused, "InstanceController: no-op");
+        require(paused == expectedPaused, "InstanceController: paused mismatch");
+
+        bytes32 structHash = keccak256(abi.encode(SET_PAUSED_TYPEHASH, expectedPaused, newPaused, pauseNonce, deadline));
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator(), structHash));
+
+        address signer = _resolvePauseSigner(digest, signature);
+        require(signer != address(0), "InstanceController: invalid pause signature");
+        emit AuthoritySignatureConsumed(signer, digest, msg.sender);
+
+        pauseNonce += 1;
+        _setPaused(signer, newPaused);
     }
 
     function startRootAuthorityTransfer(address newValue) external onlyRootAuthority {
@@ -825,8 +851,7 @@ contract InstanceController {
         _recordIncident(by, incidentHash);
 
         if (!paused) {
-            paused = true;
-            emit Paused(by);
+            _setPaused(by, true);
         }
     }
 
@@ -847,6 +872,29 @@ contract InstanceController {
         }
 
         return address(0);
+    }
+
+    function _resolvePauseSigner(bytes32 digest, bytes memory signature) private view returns (address) {
+        address root = rootAuthority;
+        if (_isValidSignatureNow(root, digest, signature)) {
+            return root;
+        }
+
+        address emergency = emergencyAuthority;
+        if (_isValidSignatureNow(emergency, digest, signature)) {
+            return emergency;
+        }
+
+        return address(0);
+    }
+
+    function _setPaused(address by, bool newPaused) private {
+        paused = newPaused;
+        if (newPaused) {
+            emit Paused(by);
+        } else {
+            emit Unpaused(by);
+        }
     }
 
     function snapshot()
