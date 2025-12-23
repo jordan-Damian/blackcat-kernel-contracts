@@ -23,7 +23,9 @@ contract InstanceController {
 
     UpgradeProposal public pendingUpgrade;
 
-    event Initialized(address indexed rootAuthority, address indexed upgradeAuthority, address indexed emergencyAuthority);
+    event Initialized(
+        address indexed rootAuthority, address indexed upgradeAuthority, address indexed emergencyAuthority
+    );
     event Paused(address indexed by);
     event Unpaused(address indexed by);
     event UpgradeProposed(bytes32 root, bytes32 uriHash, bytes32 policyHash, uint64 ttlSec);
@@ -114,16 +116,15 @@ contract InstanceController {
         emit EmergencyAuthorityChanged(previousValue, newValue);
     }
 
-    function proposeUpgrade(bytes32 root, bytes32 uriHash, bytes32 policyHash, uint64 ttlSec) external onlyUpgradeAuthority {
+    function proposeUpgrade(bytes32 root, bytes32 uriHash, bytes32 policyHash, uint64 ttlSec)
+        external
+        onlyUpgradeAuthority
+    {
         require(root != bytes32(0), "InstanceController: root=0");
         require(ttlSec != 0, "InstanceController: ttl=0");
 
         pendingUpgrade = UpgradeProposal({
-            root: root,
-            uriHash: uriHash,
-            policyHash: policyHash,
-            createdAt: uint64(block.timestamp),
-            ttlSec: ttlSec
+            root: root, uriHash: uriHash, policyHash: policyHash, createdAt: uint64(block.timestamp), ttlSec: ttlSec
         });
 
         emit UpgradeProposed(root, uriHash, policyHash, ttlSec);
@@ -132,7 +133,10 @@ contract InstanceController {
     function activateUpgrade() external onlyUpgradeAuthority {
         UpgradeProposal memory upgrade = pendingUpgrade;
         require(upgrade.root != bytes32(0), "InstanceController: no pending upgrade");
-        require(block.timestamp <= uint256(upgrade.createdAt) + uint256(upgrade.ttlSec), "InstanceController: upgrade expired");
+        require(
+            block.timestamp <= uint256(upgrade.createdAt) + uint256(upgrade.ttlSec),
+            "InstanceController: upgrade expired"
+        );
 
         activeRoot = upgrade.root;
         activeUriHash = upgrade.uriHash;

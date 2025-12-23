@@ -27,14 +27,10 @@ contract InstanceFactory {
         bytes32 genesisPolicyHash
     ) external returns (address) {
         address instance = _clone(implementation);
-        InstanceController(instance).initialize(
-            rootAuthority,
-            upgradeAuthority,
-            emergencyAuthority,
-            genesisRoot,
-            genesisUriHash,
-            genesisPolicyHash
-        );
+        InstanceController(instance)
+            .initialize(
+                rootAuthority, upgradeAuthority, emergencyAuthority, genesisRoot, genesisUriHash, genesisPolicyHash
+            );
 
         emit InstanceCreated(instance, rootAuthority, upgradeAuthority, emergencyAuthority);
         return instance;
@@ -47,7 +43,7 @@ contract InstanceFactory {
             let ptr := mload(0x40)
             mstore(ptr, 0x3d602d80600a3d3981f3363d3d373d3d3d363d73000000000000000000000000)
             mstore(add(ptr, 0x14), shl(0x60, impl))
-            mstore(add(ptr, 0x28), 0x5af43d82803e903d91602b57fd5bf300000000000000000000000000000000)
+            mstore(add(ptr, 0x28), 0x5af43d82803e903d91602b57fd5bf30000000000000000000000000000000000)
             instance := create(0, ptr, 0x37)
         }
         require(instance != address(0), "InstanceFactory: clone failed");

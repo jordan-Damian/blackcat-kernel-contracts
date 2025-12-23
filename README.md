@@ -35,6 +35,11 @@ In practice each authority can be a separate Safe with its own threshold.
 
 ## Tooling
 
-Planned dev stack: Foundry (`forge`).
+Dev stack: Foundry (`forge`).
+
+Run via Docker (recommended for consistent solc/forge versions):
+
+- Format: `docker run --rm -v "$PWD":/app -w /app --entrypoint forge ghcr.io/foundry-rs/foundry:latest fmt`
+- Test: `docker run --rm -v "$PWD":/app -w /app --entrypoint forge ghcr.io/foundry-rs/foundry:latest test`
 
 **Note:** contracts are not audited. Do not use in production until reviewed.

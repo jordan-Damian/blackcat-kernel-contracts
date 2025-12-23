@@ -16,13 +16,14 @@ This roadmap tracks the contract layer of the BlackCat “trust kernel” (Web3 
   - authorities as external multisig wallets (Safe) rather than custom on-chain multisig logic,
   - separation of `root_authority` vs `upgrade_authority` vs `emergency_authority`.
 
-## Stage 1 — Foundry scaffold + skeleton contracts
-- Foundry project scaffold (`foundry.toml`, fmt/lint/test workflows).
-- Implement skeletons with explicit events and minimal storage:
+## Stage 1 — Foundry scaffold + skeleton contracts (in progress)
+- ✅ Foundry project scaffold (`foundry.toml`, fmt/test workflows).
+- ✅ Implement skeletons with explicit events and minimal storage:
   - `ReleaseRegistry` mapping `componentId+version → root, uri, meta`,
   - `InstanceController` storing `active_root`, `active_uri`, `paused`, and upgrade slots,
   - `InstanceFactory` cloning controllers and emitting setup receipts.
-- Basic unit tests for storage, access control, and event emission.
+- ✅ Unit tests for storage + access control + upgrade TTL behavior.
+- ▢ Expand event assertions + fuzz tests (invariants).
 
 ## Stage 2 — Setup ceremony (multi-device bootstrap)
 - Setup nonce + replay protection.
@@ -47,4 +48,3 @@ This roadmap tracks the contract layer of the BlackCat “trust kernel” (Web3 
 - External security audit + formal invariant review.
 - Gas/cost benchmarks for trust modes.
 - Upgrade safety: explicit “break glass” controls and post-incident recovery runbooks.
-

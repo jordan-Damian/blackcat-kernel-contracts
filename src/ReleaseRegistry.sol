@@ -15,7 +15,9 @@ contract ReleaseRegistry {
     mapping(bytes32 => mapping(uint64 => Release)) private releases;
 
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
-    event ReleasePublished(bytes32 indexed componentId, uint64 indexed version, bytes32 root, bytes32 uriHash, bytes32 metaHash);
+    event ReleasePublished(
+        bytes32 indexed componentId, uint64 indexed version, bytes32 root, bytes32 uriHash, bytes32 metaHash
+    );
 
     modifier onlyOwner() {
         require(msg.sender == owner, "ReleaseRegistry: not owner");
@@ -35,7 +37,10 @@ contract ReleaseRegistry {
         emit OwnershipTransferred(previousOwner, newOwner);
     }
 
-    function publish(bytes32 componentId, uint64 version, bytes32 root, bytes32 uriHash, bytes32 metaHash) external onlyOwner {
+    function publish(bytes32 componentId, uint64 version, bytes32 root, bytes32 uriHash, bytes32 metaHash)
+        external
+        onlyOwner
+    {
         require(componentId != bytes32(0), "ReleaseRegistry: componentId=0");
         require(version != 0, "ReleaseRegistry: version=0");
         require(root != bytes32(0), "ReleaseRegistry: root=0");
