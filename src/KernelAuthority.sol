@@ -27,7 +27,14 @@ contract KernelAuthority {
     uint256 public nonce;
 
     event Executed(address indexed target, uint256 value, bytes32 dataHash, uint256 nonce, address indexed executor);
-    event BatchExecuted(uint256 count, bytes32 callsHash, uint256 nonce, address indexed executor);
+    event BatchExecuted(
+        uint256 count,
+        bytes32 targetsHash,
+        bytes32 valuesHash,
+        bytes32 dataHashesHash,
+        uint256 nonce,
+        address indexed executor
+    );
     event ConfigChanged(uint256 threshold, address[] signers);
 
     constructor(address[] memory signers_, uint256 threshold_) {
@@ -110,19 +117,18 @@ contract KernelAuthority {
 
         uint256 nonce_ = nonce;
         {
+            bytes32 targetsHash = keccak256(abi.encode(targets));
+            bytes32 valuesHash = keccak256(abi.encode(values));
+            bytes32 dataHashesHash = _hashDataHashes(data);
+
             bytes32 structHash = keccak256(
-                abi.encode(
-                    EXECUTE_BATCH_TYPEHASH,
-                    keccak256(abi.encode(targets)),
-                    keccak256(abi.encode(values)),
-                    _hashDataHashes(data),
-                    nonce_,
-                    deadline
-                )
+                abi.encode(EXECUTE_BATCH_TYPEHASH, targetsHash, valuesHash, dataHashesHash, nonce_, deadline)
             );
             bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator(), structHash));
             _checkSignatures(digest, signatures);
             nonce = nonce_ + 1;
+
+            emit BatchExecuted(count, targetsHash, valuesHash, dataHashesHash, nonce_, msg.sender);
         }
 
         for (uint256 i = 0; i < count; i++) {
@@ -131,8 +137,6 @@ contract KernelAuthority {
                 _revertWith(ret);
             }
         }
-
-        emit BatchExecuted(count, _hashDataHashes(data), nonce_, msg.sender);
     }
 
     /// @notice EIP-1271 signature validator for tooling that expects contract-based signing.

@@ -29,6 +29,7 @@ contract InstanceFactory {
         address emergencyAuthority,
         address createdBy
     );
+    event SetupSignatureConsumed(address indexed rootAuthority, bytes32 indexed digest, address indexed relayer);
     event InstanceCreatedDeterministic(
         address indexed instance,
         bytes32 indexed salt,
@@ -130,6 +131,7 @@ contract InstanceFactory {
             _isValidSignatureNow(rootAuthority, digest, rootAuthoritySignature),
             "InstanceFactory: invalid root signature"
         );
+        emit SetupSignatureConsumed(rootAuthority, digest, msg.sender);
 
         address instance = _cloneDeterministic(implementation, salt);
         InstanceController(instance)
