@@ -1,3 +1,5 @@
+![BlackCat Kernel Contracts banner](.github/blackcat-kernel-contracts-banner.png)
+
 # BlackCat Kernel Contracts
 
 EVM smart contracts that act as the **trust authority** for BlackCat installations.
