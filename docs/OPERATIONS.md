@@ -53,6 +53,7 @@ Activate/cancel (safe helpers):
 Rolling upgrades:
 - Set overlap window: `SetCompatibilityWindow.s.sol`
 - During the overlap, runtimes can accept either active state or compatibility state (`isAcceptedState`).
+- Clear compatibility state: `ClearCompatibilityState.s.sol`
 
 ## Monitoring and incidents
 
@@ -61,6 +62,10 @@ Reporter check-in (direct):
 
 Incident reporting (direct; pauses the controller):
 - `ReportIncident.s.sol`
+
+Pause/unpause:
+- Direct: `Pause.s.sol`, `Unpause.s.sol`
+- Relayer signature: `setPausedAuthorized(...)` (see SPEC)
 
 Relayer variants:
 - `checkInAuthorized(...)`, `reportIncidentAuthorized(...)`, `setPausedAuthorized(...)`
@@ -75,6 +80,13 @@ Example (recommended):
 - `value = sha256(canonical_runtime_config_bytes)`
 
 Use `SetAttestation.s.sol` for a basic EOA flow (production should use Safe).
+Clear an attestation:
+- `ClearAttestation.s.sol`
+
+Other recommended settings:
+- Set upgrade timelock: `SetMinUpgradeDelay.s.sol`
+- Toggle auto-pause on bad check-in: `SetAutoPauseOnBadCheckIn.s.sol`
+- Clear reporter authority: `ClearReporterAuthority.s.sol`
 
 ## ManifestStore (optional “full detail” availability)
 
@@ -84,4 +96,3 @@ Upload a blob (expensive):
 Consumers must:
 - reassemble the blob and validate its `sha256` off-chain
 - treat on-chain availability as an availability layer, not as “automatic trust”
-

@@ -65,6 +65,14 @@ Scripts live in `blackcat-kernel-contracts/script/` and intentionally avoid exte
   - `blackcat-kernel-contracts/script/ActivateUpgradeExpected.s.sol`
   - `blackcat-kernel-contracts/script/CancelUpgradeExpected.s.sol`
 - Pause/unpause: `blackcat-kernel-contracts/script/Pause.s.sol`, `blackcat-kernel-contracts/script/Unpause.s.sol`
+- Monitoring / ops:
+  - `blackcat-kernel-contracts/script/CheckIn.s.sol`
+  - `blackcat-kernel-contracts/script/ReportIncident.s.sol`
+  - `blackcat-kernel-contracts/script/SetAttestation.s.sol`, `blackcat-kernel-contracts/script/ClearAttestation.s.sol`
+  - `blackcat-kernel-contracts/script/SetCompatibilityWindow.s.sol`, `blackcat-kernel-contracts/script/ClearCompatibilityState.s.sol`
+  - `blackcat-kernel-contracts/script/SetMinUpgradeDelay.s.sol`
+  - `blackcat-kernel-contracts/script/SetAutoPauseOnBadCheckIn.s.sol`
+  - `blackcat-kernel-contracts/script/ClearReporterAuthority.s.sol`
 - Upload ManifestStore blobs: `blackcat-kernel-contracts/script/UploadManifestBlob.s.sol`
 
 **Note:** contracts are not audited. Do not use in production until reviewed.

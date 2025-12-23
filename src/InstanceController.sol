@@ -226,14 +226,12 @@ contract InstanceController {
 
     function pause() external onlyEmergencyOrRootAuthority {
         if (!paused) {
-            pauseNonce += 1;
             _setPaused(msg.sender, true);
         }
     }
 
     function unpause() external onlyEmergencyOrRootAuthority {
         if (paused) {
-            pauseNonce += 1;
             _setPaused(msg.sender, false);
         }
     }
@@ -257,7 +255,6 @@ contract InstanceController {
         require(signer != address(0), "InstanceController: invalid pause signature");
         emit AuthoritySignatureConsumed(signer, digest, msg.sender);
 
-        pauseNonce += 1;
         _setPaused(signer, newPaused);
     }
 
@@ -842,8 +839,7 @@ contract InstanceController {
                     )
                 )
             );
-            paused = true;
-            emit Paused(by);
+            _setPaused(by, true);
         }
     }
 
@@ -889,6 +885,11 @@ contract InstanceController {
     }
 
     function _setPaused(address by, bool newPaused) private {
+        if (paused == newPaused) {
+            return;
+        }
+
+        pauseNonce += 1;
         paused = newPaused;
         if (newPaused) {
             emit Paused(by);
