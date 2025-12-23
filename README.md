@@ -56,5 +56,11 @@ Scripts live in `blackcat-kernel-contracts/script/` and intentionally avoid exte
 - Deploy only registry: `blackcat-kernel-contracts/script/DeployReleaseRegistry.s.sol`
 - Deploy only factory: `blackcat-kernel-contracts/script/DeployInstanceFactory.s.sol`
 - Publish/revoke releases: `blackcat-kernel-contracts/script/PublishRelease.s.sol`, `blackcat-kernel-contracts/script/RevokeRelease.s.sol`
+- Per-install instance + upgrades:
+  - `blackcat-kernel-contracts/script/CreateInstanceDeterministic.s.sol`
+  - `blackcat-kernel-contracts/script/ProposeUpgrade.s.sol`
+  - `blackcat-kernel-contracts/script/ProposeUpgradeByRelease.s.sol`
+  - `blackcat-kernel-contracts/script/ActivateUpgradeExpected.s.sol`
+  - `blackcat-kernel-contracts/script/CancelUpgradeExpected.s.sol`
 
 **Note:** contracts are not audited. Do not use in production until reviewed.
