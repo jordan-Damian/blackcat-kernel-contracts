@@ -14,6 +14,13 @@ interface IReleaseRegistryGet {
     function get(bytes32 componentId, uint64 version) external view returns (Release memory);
 }
 
+interface IReleaseRegistryByRoot {
+    function getByRoot(bytes32 root)
+        external
+        view
+        returns (bytes32 componentId, uint64 version, bytes32 uriHash, bytes32 metaHash, bool revoked);
+}
+
 /// @notice Per-install trust authority for a single BlackCat deployment.
 /// @dev Skeleton contract (not audited, not production-ready).
 contract InstanceController {
@@ -77,6 +84,8 @@ contract InstanceController {
 
     address public releaseRegistry;
     bool public releaseRegistryLocked;
+    bytes32 public expectedComponentId;
+    bool public expectedComponentIdLocked;
     address public reporterAuthority;
     address public pendingReporterAuthority;
 
@@ -145,6 +154,8 @@ contract InstanceController {
     event ReporterAuthorityTransferCanceled(address indexed previousValue, address indexed pendingValue);
     event ReleaseRegistryChanged(address indexed previousValue, address indexed newValue);
     event ReleaseRegistryLocked(address indexed registry);
+    event ExpectedComponentIdChanged(bytes32 indexed previousValue, bytes32 indexed newValue);
+    event ExpectedComponentIdLocked(bytes32 indexed componentId);
     event ReporterAuthorityChanged(address indexed previousValue, address indexed newValue);
     event MinUpgradeDelayChanged(uint64 previousValue, uint64 newValue);
     event MinUpgradeDelayLocked(uint64 value);
@@ -476,6 +487,10 @@ contract InstanceController {
     function setReleaseRegistry(address newValue) external onlyRootAuthority {
         require(!releaseRegistryLocked, "InstanceController: registry locked");
 
+        if (newValue == address(0)) {
+            require(expectedComponentId == bytes32(0), "InstanceController: expected component set");
+        }
+
         if (newValue != address(0)) {
             require(newValue.code.length != 0, "InstanceController: registry not contract");
             require(IReleaseRegistry(newValue).isTrustedRoot(activeRoot), "InstanceController: active root not trusted");
@@ -493,6 +508,17 @@ contract InstanceController {
                     IReleaseRegistry(newValue).isTrustedRoot(compat.root), "InstanceController: compat root not trusted"
                 );
             }
+
+            bytes32 expected = expectedComponentId;
+            if (expected != bytes32(0)) {
+                _requireRootComponent(newValue, activeRoot, expected);
+                if (p.root != bytes32(0)) {
+                    _requireRootComponent(newValue, p.root, expected);
+                }
+                if (compat.root != bytes32(0) && block.timestamp <= compat.until) {
+                    _requireRootComponent(newValue, compat.root, expected);
+                }
+            }
         }
         address previousValue = releaseRegistry;
         releaseRegistry = newValue;
@@ -505,6 +531,39 @@ contract InstanceController {
         require(registry != address(0), "InstanceController: no registry");
         releaseRegistryLocked = true;
         emit ReleaseRegistryLocked(registry);
+    }
+
+    function setExpectedComponentId(bytes32 newValue) external onlyRootAuthority {
+        require(!expectedComponentIdLocked, "InstanceController: expected component locked");
+
+        if (newValue != bytes32(0)) {
+            address registry = releaseRegistry;
+            require(registry != address(0), "InstanceController: no registry");
+
+            _requireRootComponent(registry, activeRoot, newValue);
+
+            UpgradeProposal memory p = pendingUpgrade;
+            if (p.root != bytes32(0)) {
+                _requireRootComponent(registry, p.root, newValue);
+            }
+
+            CompatibilityState memory compat = compatibilityState;
+            if (compat.root != bytes32(0) && block.timestamp <= compat.until) {
+                _requireRootComponent(registry, compat.root, newValue);
+            }
+        }
+
+        bytes32 previousValue = expectedComponentId;
+        expectedComponentId = newValue;
+        emit ExpectedComponentIdChanged(previousValue, newValue);
+    }
+
+    function lockExpectedComponentId() external onlyRootAuthority {
+        require(!expectedComponentIdLocked, "InstanceController: expected component locked");
+        bytes32 componentId = expectedComponentId;
+        require(componentId != bytes32(0), "InstanceController: componentId=0");
+        expectedComponentIdLocked = true;
+        emit ExpectedComponentIdLocked(componentId);
     }
 
     function startReporterAuthorityTransfer(address newValue) external onlyRootAuthority {
@@ -810,6 +869,12 @@ contract InstanceController {
             require(IReleaseRegistry(registry).isTrustedRoot(root), "InstanceController: root not trusted");
         }
 
+        bytes32 expected = expectedComponentId;
+        if (expected != bytes32(0)) {
+            require(registry != address(0), "InstanceController: no registry");
+            _requireRootComponent(registry, root, expected);
+        }
+
         pendingUpgrade = UpgradeProposal({
             root: root, uriHash: uriHash, policyHash: policyHash, createdAt: uint64(block.timestamp), ttlSec: ttlSec
         });
@@ -827,6 +892,11 @@ contract InstanceController {
 
         address registry = releaseRegistry;
         require(registry != address(0), "InstanceController: no registry");
+
+        bytes32 expected = expectedComponentId;
+        if (expected != bytes32(0)) {
+            require(componentId == expected, "InstanceController: component mismatch");
+        }
 
         try IReleaseRegistryGet(registry).get(componentId, version) returns (IReleaseRegistryGet.Release memory rel) {
             require(rel.root != bytes32(0), "InstanceController: release not found");
@@ -992,6 +1062,12 @@ contract InstanceController {
         address registry = releaseRegistry;
         if (registry != address(0)) {
             require(IReleaseRegistry(registry).isTrustedRoot(upgrade.root), "InstanceController: root not trusted");
+        }
+
+        bytes32 expected = expectedComponentId;
+        if (expected != bytes32(0)) {
+            require(registry != address(0), "InstanceController: no registry");
+            _requireRootComponent(registry, upgrade.root, expected);
         }
 
         bytes32 previousRoot = activeRoot;
@@ -1168,6 +1244,20 @@ contract InstanceController {
         return keccak256(abi.encodePacked("\x19\x01", domainSeparator(), structHash));
     }
 
+    function _requireRootComponent(address registry, bytes32 root, bytes32 componentId) private view {
+        require(root != bytes32(0), "InstanceController: root=0");
+        require(componentId != bytes32(0), "InstanceController: componentId=0");
+
+        try IReleaseRegistryByRoot(registry).getByRoot(root) returns (
+            bytes32 foundComponentId, uint64, bytes32, bytes32, bool
+        ) {
+            require(foundComponentId != bytes32(0), "InstanceController: root unknown");
+            require(foundComponentId == componentId, "InstanceController: component mismatch");
+        } catch {
+            revert("InstanceController: registry missing getByRoot");
+        }
+    }
+
     function snapshot()
         external
         view
@@ -1240,6 +1330,9 @@ contract InstanceController {
         }
         if (compatibilityWindowLocked) {
             flags |= 32;
+        }
+        if (expectedComponentIdLocked) {
+            flags |= 64;
         }
 
         return (

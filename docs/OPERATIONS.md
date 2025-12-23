@@ -83,6 +83,14 @@ Notes:
 - Clearing the registry pointer disables registry enforcement (dev only; not recommended for production).
 - Once locked, the registry pointer cannot be changed (recommended for production after verification).
 
+## Component pinning (optional)
+
+If you publish multiple components into a single `ReleaseRegistry`, you can optionally pin the controller to a specific
+`componentId` to prevent accidentally proposing upgrades using roots from a different component line.
+
+- Set/clear: `SetExpectedComponentId.s.sol`
+- Lock (irreversible): `LockExpectedComponentId.s.sol`
+
 ## Authority rotation (controller)
 
 All authorities use a 2-step transfer to reduce operator mistakes:

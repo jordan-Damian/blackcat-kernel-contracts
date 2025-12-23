@@ -78,6 +78,8 @@ Scripts live in `blackcat-kernel-contracts/script/` and intentionally avoid exte
   - `blackcat-kernel-contracts/script/LockAutoPauseOnBadCheckIn.s.sol`
   - `blackcat-kernel-contracts/script/SetEmergencyCanUnpause.s.sol`
   - `blackcat-kernel-contracts/script/LockEmergencyCanUnpause.s.sol`
+  - `blackcat-kernel-contracts/script/SetExpectedComponentId.s.sol`
+  - `blackcat-kernel-contracts/script/LockExpectedComponentId.s.sol`
   - `blackcat-kernel-contracts/script/ClearReporterAuthority.s.sol`
   - `blackcat-kernel-contracts/script/SetReleaseRegistry.s.sol`
   - `blackcat-kernel-contracts/script/LockReleaseRegistry.s.sol`

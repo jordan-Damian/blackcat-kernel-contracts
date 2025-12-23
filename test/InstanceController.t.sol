@@ -628,6 +628,7 @@ contract InstanceControllerTest is TestBase {
         assertTrue((flags_ & 8) == 0, "emergencyCanUnpauseLocked should default to false");
         assertTrue((flags_ & 16) == 0, "autoPauseOnBadCheckInLocked should default to false");
         assertTrue((flags_ & 32) == 0, "compatibilityWindowLocked should default to false");
+        assertTrue((flags_ & 64) == 0, "expectedComponentIdLocked should default to false");
     }
 
     function test_lockReleaseRegistry_prevents_changes() public {
@@ -979,6 +980,71 @@ contract InstanceControllerTest is TestBase {
         vm.prank(root);
         vm.expectRevert("InstanceController: root not trusted");
         strictController.activateUpgrade();
+    }
+
+    function test_setExpectedComponentId_rejects_without_registry() public {
+        vm.prank(root);
+        vm.expectRevert("InstanceController: no registry");
+        controller.setExpectedComponentId(keccak256("blackcat-core"));
+    }
+
+    function test_expectedComponentId_enforces_component_line_when_registry_is_set() public {
+        ReleaseRegistry registry = new ReleaseRegistry(address(this));
+        bytes32 componentA = keccak256("blackcat-core");
+        bytes32 componentB = keccak256("blackcat-other");
+
+        registry.publish(componentA, 1, genesisRoot, genesisUriHash, 0);
+
+        bytes32 otherRoot = keccak256("other-root");
+        registry.publish(componentB, 1, otherRoot, 0, 0);
+
+        InstanceFactory strictFactory = new InstanceFactory(address(registry));
+        InstanceController c = InstanceController(
+            strictFactory.createInstance(root, upgrader, emergency, genesisRoot, genesisUriHash, genesisPolicyHash)
+        );
+
+        vm.prank(root);
+        c.setExpectedComponentId(componentA);
+
+        vm.prank(root);
+        vm.expectRevert("InstanceController: expected component set");
+        c.setReleaseRegistry(address(0));
+
+        vm.prank(upgrader);
+        vm.expectRevert("InstanceController: component mismatch");
+        c.proposeUpgrade(otherRoot, 0, 0, 3600);
+
+        vm.prank(upgrader);
+        vm.expectRevert("InstanceController: component mismatch");
+        c.proposeUpgradeByRelease(componentB, 1, 0, 3600);
+
+        bytes32 nextRoot = keccak256("trusted-root-a2");
+        registry.publish(componentA, 2, nextRoot, 0, 0);
+
+        vm.prank(upgrader);
+        c.proposeUpgrade(nextRoot, 0, 0, 3600);
+    }
+
+    function test_expectedComponentId_lock_prevents_changes() public {
+        ReleaseRegistry registry = new ReleaseRegistry(address(this));
+        bytes32 componentA = keccak256("blackcat-core");
+
+        registry.publish(componentA, 1, genesisRoot, genesisUriHash, 0);
+
+        InstanceFactory strictFactory = new InstanceFactory(address(registry));
+        InstanceController c = InstanceController(
+            strictFactory.createInstance(root, upgrader, emergency, genesisRoot, genesisUriHash, genesisPolicyHash)
+        );
+
+        vm.prank(root);
+        c.setExpectedComponentId(componentA);
+
+        vm.prank(root);
+        c.lockExpectedComponentId();
+
+        vm.prank(root);
+        vm.expectRevert("InstanceController: expected component locked");
+        c.setExpectedComponentId(bytes32(0));
     }
 
     function test_compatibility_state_rejects_revoked_root_when_registry_is_set() public {

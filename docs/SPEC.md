@@ -121,6 +121,8 @@ State:
 - `rootAuthority`, `upgradeAuthority`, `emergencyAuthority`
 - Optional `releaseRegistry` (if set, upgrades must reference trusted roots)
 - Optional `releaseRegistryLocked` (if true, registry pointer is immutable)
+- Optional `expectedComponentId` (if set, upgrades must belong to this component in the ReleaseRegistry)
+- Optional `expectedComponentIdLocked` (if true, `expectedComponentId` is immutable)
 - Optional `minUpgradeDelaySec` (timelock)
 - Optional `minUpgradeDelayLocked` (if true, `minUpgradeDelaySec` is immutable)
 - Optional `reporterAuthority` + `lastCheckInAt/lastCheckInOk` (monitoring agent check-in)
@@ -190,6 +192,10 @@ If `releaseRegistry` is set:
 - `initialize(...)` requires the genesis `root` to be trusted in the registry.
 - `proposeUpgrade(...)` and `activateUpgrade()` require the proposed root to be trusted at the time of the call.
 
+If `expectedComponentId` is set (and registry supports `getByRoot`):
+- `proposeUpgrade(...)` / `activateUpgrade()` require the root to belong to the expected `componentId`.
+- `proposeUpgradeByRelease(componentId, ...)` requires `componentId == expectedComponentId`.
+
 Emergency flow:
 - `pause()` (emergency authority or root authority)
 - `unpause()` (root authority; emergency only if `emergencyCanUnpause=true`)
@@ -217,6 +223,7 @@ Runtime optimization (v1):
     - `0x8` → `emergencyCanUnpauseLocked`
     - `0x10` → `autoPauseOnBadCheckInLocked`
     - `0x20` → `compatibilityWindowLocked`
+    - `0x40` → `expectedComponentIdLocked`
 
 ### `InstanceFactory`
 
