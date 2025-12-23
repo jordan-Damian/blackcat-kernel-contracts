@@ -37,6 +37,7 @@ This roadmap tracks the contract layer of the BlackCat “trust kernel” (Web3 
   - binds the controller to chosen authorities,
   - pins the initial trust mode and policy hash,
   - emits an immutable “genesis” event for the installation.
+ - Optional authority mode `KernelAuthority` (EIP-712 threshold signer) for multi-device flows without Safe.
 
 ## Stage 3 — Upgrade state machine + emergency controls
 - ✅ Upgrade flow: `propose → activate` with TTL and optional timelock.

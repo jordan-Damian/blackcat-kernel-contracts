@@ -25,7 +25,10 @@ Production must use multi-RPC quorum (recommended: `2/3`, minimum: `2/2`).
 
 ## Actors / authorities
 
-Authorities are **external multisig wallets** (e.g. Safe) to avoid custom multisig logic in kernel contracts.
+Authorities are normally **external multisig wallets** (e.g. Safe) to avoid custom multisig logic in kernel contracts.
+
+Optionally (advanced), BlackCat can use an on-chain EIP-712 threshold signer authority (`KernelAuthority`) to enforce multi-device signing without depending on Safe tooling.
+See `blackcat-kernel-contracts/docs/AUTHORITY_MODES.md`.
 
 Recommended split:
 - `root_authority` (highest): policy changes, authority rotation, thresholds.

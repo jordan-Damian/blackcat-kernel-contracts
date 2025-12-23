@@ -14,10 +14,12 @@ This repository is intentionally **Solidity-only**. Runtime policy, config permi
 - `ReleaseRegistry`: global registry of “official” component releases (version → root hash + URI).
 - `InstanceFactory`: creates/clones `InstanceController` per install and runs the setup ceremony (CREATE + CREATE2).
 - `InstanceController`: per-install state machine (propose → stage → activate upgrades), pause/unpause, and history events.
+- `KernelAuthority` (optional): minimal EIP-712 threshold signer authority (multi-device by design without Safe dependency).
 
 ## Spec
 
 - `blackcat-kernel-contracts/docs/SPEC.md`
+- `blackcat-kernel-contracts/docs/AUTHORITY_MODES.md`
 
 ## Governance model (planned)
 
