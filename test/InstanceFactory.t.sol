@@ -16,13 +16,18 @@ contract InstanceFactoryTest is TestBase {
     bytes32 private genesisPolicyHash = keccak256("policy");
 
     function setUp() public {
-        factory = new InstanceFactory();
+        factory = new InstanceFactory(address(0));
     }
 
     function test_implementation_is_locked() public {
         InstanceController impl = InstanceController(factory.implementation());
         vm.expectRevert("InstanceController: already initialized");
-        impl.initialize(root, upgrader, emergency, genesisRoot, genesisUriHash, genesisPolicyHash);
+        impl.initialize(root, upgrader, emergency, address(0), genesisRoot, genesisUriHash, genesisPolicyHash);
+    }
+
+    function test_constructor_rejects_non_contract_registry() public {
+        vm.expectRevert("InstanceFactory: registry not contract");
+        new InstanceFactory(address(1));
     }
 
     function test_createInstance_initializes_clone() public {
@@ -37,9 +42,29 @@ contract InstanceFactoryTest is TestBase {
         assertEq(c.upgradeAuthority(), upgrader, "upgradeAuthority mismatch");
         assertEq(c.emergencyAuthority(), emergency, "emergencyAuthority mismatch");
         assertEq(c.activeRoot(), genesisRoot, "activeRoot mismatch");
+        assertEq(c.releaseRegistry(), address(0), "releaseRegistry mismatch");
 
         // EIP-1167 runtime code is 45 bytes.
         assertEq(instance.code.length, 45, "unexpected clone code length");
+    }
+
+    function test_createInstanceDeterministic_matches_predict() public {
+        bytes32 salt = keccak256("salt-1");
+        address predicted = factory.predictInstanceAddress(salt);
+        address instance =
+            factory.createInstanceDeterministic(root, upgrader, emergency, genesisRoot, genesisUriHash, genesisPolicyHash, salt);
+
+        assertEq(instance, predicted, "predicted address mismatch");
+        assertTrue(factory.isInstance(instance), "factory must mark instance");
+        assertEq(instance.code.length, 45, "unexpected clone code length");
+    }
+
+    function test_createInstanceDeterministic_reverts_on_salt_reuse() public {
+        bytes32 salt = keccak256("salt-2");
+        factory.createInstanceDeterministic(root, upgrader, emergency, genesisRoot, genesisUriHash, genesisPolicyHash, salt);
+
+        vm.expectRevert("InstanceFactory: clone failed");
+        factory.createInstanceDeterministic(root, upgrader, emergency, genesisRoot, genesisUriHash, genesisPolicyHash, salt);
     }
 
     function test_createInstance_reverts_on_invalid_args() public {

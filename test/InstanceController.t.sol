@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 import {TestBase} from "./TestBase.sol";
 import {InstanceController} from "../src/InstanceController.sol";
 import {InstanceFactory} from "../src/InstanceFactory.sol";
+import {ReleaseRegistry} from "../src/ReleaseRegistry.sol";
 
 contract InstanceControllerTest is TestBase {
     InstanceController private controller;
@@ -17,7 +18,7 @@ contract InstanceControllerTest is TestBase {
     bytes32 private genesisPolicyHash = keccak256("policy");
 
     function setUp() public {
-        factory = new InstanceFactory();
+        factory = new InstanceFactory(address(0));
         address instance =
             factory.createInstance(root, upgrader, emergency, genesisRoot, genesisUriHash, genesisPolicyHash);
         controller = InstanceController(instance);
@@ -27,6 +28,7 @@ contract InstanceControllerTest is TestBase {
         assertEq(controller.rootAuthority(), root, "rootAuthority mismatch");
         assertEq(controller.upgradeAuthority(), upgrader, "upgradeAuthority mismatch");
         assertEq(controller.emergencyAuthority(), emergency, "emergencyAuthority mismatch");
+        assertEq(controller.releaseRegistry(), address(0), "releaseRegistry mismatch");
         assertEq(controller.activeRoot(), genesisRoot, "activeRoot mismatch");
         assertEq(controller.activeUriHash(), genesisUriHash, "activeUriHash mismatch");
         assertEq(controller.activePolicyHash(), genesisPolicyHash, "activePolicyHash mismatch");
@@ -35,7 +37,7 @@ contract InstanceControllerTest is TestBase {
 
     function test_initialize_reverts_on_second_call() public {
         vm.expectRevert("InstanceController: already initialized");
-        controller.initialize(root, upgrader, emergency, genesisRoot, genesisUriHash, genesisPolicyHash);
+        controller.initialize(root, upgrader, emergency, address(0), genesisRoot, genesisUriHash, genesisPolicyHash);
     }
 
     function test_initialize_rejects_zero_authorities_via_factory() public {
@@ -108,5 +110,111 @@ contract InstanceControllerTest is TestBase {
         vm.prank(root);
         vm.expectRevert("InstanceController: upgrade expired");
         controller.activateUpgrade();
+    }
+
+    function test_activate_upgrade_reverts_when_paused() public {
+        bytes32 nextRoot = keccak256("next-root-paused");
+
+        vm.prank(upgrader);
+        controller.proposeUpgrade(nextRoot, genesisUriHash, genesisPolicyHash, 3600);
+
+        vm.prank(emergency);
+        controller.pause();
+
+        vm.prank(root);
+        vm.expectRevert("InstanceController: paused");
+        controller.activateUpgrade();
+    }
+
+    function test_activate_upgrade_enforces_timelock() public {
+        uint64 delaySec = 3600;
+        bytes32 nextRoot = keccak256("next-root-timelock");
+
+        vm.prank(root);
+        controller.setMinUpgradeDelaySec(delaySec);
+
+        vm.prank(upgrader);
+        controller.proposeUpgrade(nextRoot, genesisUriHash, genesisPolicyHash, delaySec * 2);
+
+        (,,, uint64 createdAt,) = controller.pendingUpgrade();
+
+        vm.prank(root);
+        vm.expectRevert("InstanceController: upgrade timelocked");
+        controller.activateUpgrade();
+
+        vm.warp(uint256(createdAt) + uint256(delaySec));
+
+        vm.prank(root);
+        controller.activateUpgrade();
+        assertEq(controller.activeRoot(), nextRoot, "active root not updated");
+    }
+
+    function test_setMinUpgradeDelaySec_rejects_too_large() public {
+        uint64 tooLarge = controller.MAX_UPGRADE_DELAY_SEC() + 1;
+
+        vm.prank(root);
+        vm.expectRevert("InstanceController: delay too large");
+        controller.setMinUpgradeDelaySec(tooLarge);
+    }
+
+    function test_checkIn_tracks_runtime_state() public {
+        address reporter = address(0x7777777777777777777777777777777777777777);
+
+        vm.prank(root);
+        controller.setReporterAuthority(reporter);
+
+        vm.prank(reporter);
+        controller.checkIn(genesisRoot, genesisUriHash, genesisPolicyHash);
+        assertTrue(controller.lastCheckInOk(), "checkIn should be ok");
+
+        vm.prank(reporter);
+        controller.checkIn(keccak256("wrong-root"), genesisUriHash, genesisPolicyHash);
+        assertTrue(!controller.lastCheckInOk(), "checkIn should be not ok");
+    }
+
+    function test_checkIn_only_reporter() public {
+        address reporter = address(0x7777777777777777777777777777777777777777);
+
+        vm.prank(root);
+        controller.setReporterAuthority(reporter);
+
+        vm.prank(upgrader);
+        vm.expectRevert("InstanceController: not reporter authority");
+        controller.checkIn(genesisRoot, genesisUriHash, genesisPolicyHash);
+    }
+
+    function test_release_registry_enforces_genesis_and_upgrade_trust() public {
+        ReleaseRegistry registry = new ReleaseRegistry(address(this));
+        bytes32 component = keccak256("blackcat-core");
+
+        registry.publish(component, 1, genesisRoot, 0, 0);
+
+        InstanceFactory strictFactory = new InstanceFactory(address(registry));
+        address instance = strictFactory.createInstance(root, upgrader, emergency, genesisRoot, genesisUriHash, genesisPolicyHash);
+        InstanceController strictController = InstanceController(instance);
+
+        vm.prank(upgrader);
+        vm.expectRevert("InstanceController: root not trusted");
+        strictController.proposeUpgrade(keccak256("untrusted-root"), 0, 0, 3600);
+
+        bytes32 nextRoot = keccak256("trusted-root");
+        registry.publish(component, 2, nextRoot, 0, 0);
+
+        vm.prank(upgrader);
+        strictController.proposeUpgrade(nextRoot, 0, 0, 3600);
+
+        registry.revoke(component, 2);
+
+        vm.prank(root);
+        vm.expectRevert("InstanceController: root not trusted");
+        strictController.activateUpgrade();
+    }
+
+    function test_initialize_rejects_untrusted_genesis_root_when_registry_is_set() public {
+        ReleaseRegistry registry = new ReleaseRegistry(address(this));
+        InstanceFactory strictFactory = new InstanceFactory(address(registry));
+
+        vm.expectRevert("InstanceController: genesis root not trusted");
+        strictFactory.createInstance(root, upgrader, emergency, genesisRoot, genesisUriHash, genesisPolicyHash);
     }
 }

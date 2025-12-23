@@ -12,7 +12,7 @@ This repository is intentionally **Solidity-only**. Runtime policy, config permi
 ## Contracts (planned)
 
 - `ReleaseRegistry`: global registry of “official” component releases (version → root hash + URI).
-- `InstanceFactory`: creates/clones `InstanceController` per install and runs the setup ceremony.
+- `InstanceFactory`: creates/clones `InstanceController` per install and runs the setup ceremony (CREATE + CREATE2).
 - `InstanceController`: per-install state machine (propose → stage → activate upgrades), pause/unpause, and history events.
 
 ## Spec

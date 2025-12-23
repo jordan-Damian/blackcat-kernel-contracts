@@ -15,12 +15,15 @@ contract ReleaseRegistry {
     /// @dev componentId (bytes32) + version (uint64) -> release metadata.
     mapping(bytes32 => mapping(uint64 => Release)) private releases;
     mapping(bytes32 => bool) private publishedRoots;
+    mapping(bytes32 => bool) private revokedRoots;
+    mapping(bytes32 => mapping(uint64 => bool)) private revokedReleases;
 
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     event OwnershipTransferStarted(address indexed previousOwner, address indexed pendingOwner);
     event ReleasePublished(
         bytes32 indexed componentId, uint64 indexed version, bytes32 root, bytes32 uriHash, bytes32 metaHash
     );
+    event ReleaseRevoked(bytes32 indexed componentId, uint64 indexed version, bytes32 root);
 
     modifier onlyOwner() {
         require(msg.sender == owner, "ReleaseRegistry: not owner");
@@ -54,11 +57,25 @@ contract ReleaseRegistry {
         require(componentId != bytes32(0), "ReleaseRegistry: componentId=0");
         require(version != 0, "ReleaseRegistry: version=0");
         require(root != bytes32(0), "ReleaseRegistry: root=0");
+        require(!revokedRoots[root], "ReleaseRegistry: root revoked");
 
         require(releases[componentId][version].root == bytes32(0), "ReleaseRegistry: already published");
         releases[componentId][version] = Release({root: root, uriHash: uriHash, metaHash: metaHash});
         publishedRoots[root] = true;
         emit ReleasePublished(componentId, version, root, uriHash, metaHash);
+    }
+
+    function revoke(bytes32 componentId, uint64 version) external onlyOwner {
+        require(componentId != bytes32(0), "ReleaseRegistry: componentId=0");
+        require(version != 0, "ReleaseRegistry: version=0");
+        require(!revokedReleases[componentId][version], "ReleaseRegistry: already revoked");
+
+        Release memory rel = releases[componentId][version];
+        require(rel.root != bytes32(0), "ReleaseRegistry: release not found");
+
+        revokedReleases[componentId][version] = true;
+        revokedRoots[rel.root] = true;
+        emit ReleaseRevoked(componentId, version, rel.root);
     }
 
     function get(bytes32 componentId, uint64 version) external view returns (Release memory) {
@@ -67,5 +84,17 @@ contract ReleaseRegistry {
 
     function isPublishedRoot(bytes32 root) external view returns (bool) {
         return publishedRoots[root];
+    }
+
+    function isRevokedRoot(bytes32 root) external view returns (bool) {
+        return revokedRoots[root];
+    }
+
+    function isTrustedRoot(bytes32 root) external view returns (bool) {
+        return publishedRoots[root] && !revokedRoots[root];
+    }
+
+    function isRevokedRelease(bytes32 componentId, uint64 version) external view returns (bool) {
+        return revokedReleases[componentId][version];
     }
 }

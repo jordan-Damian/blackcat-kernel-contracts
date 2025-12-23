@@ -22,7 +22,11 @@ This roadmap tracks the contract layer of the BlackCat “trust kernel” (Web3 
   - `ReleaseRegistry` mapping `componentId+version → root, uri, meta`,
   - `InstanceController` storing `active_root`, `active_uri`, `paused`, and upgrade slots,
   - `InstanceFactory` cloning controllers and emitting setup receipts.
-- ✅ Unit tests for storage + access control + upgrade TTL behavior.
+- ✅ Add revocation/trust model to `ReleaseRegistry` (`revoke`, `isTrustedRoot`).
+- ✅ Add optional `ReleaseRegistry` enforcement to `InstanceController` (genesis + upgrades).
+- ✅ Add optional upgrade timelock (`minUpgradeDelaySec`) and reporter check-ins to `InstanceController`.
+- ✅ Add deterministic instance creation via CREATE2 (`predictInstanceAddress`, `createInstanceDeterministic`).
+- ✅ Unit tests for storage + access control + upgrade TTL/timelock behavior.
 - ▢ Expand event assertions + fuzz tests (invariants).
 
 ## Stage 2 — Setup ceremony (multi-device bootstrap)
@@ -34,12 +38,13 @@ This roadmap tracks the contract layer of the BlackCat “trust kernel” (Web3 
   - emits an immutable “genesis” event for the installation.
 
 ## Stage 3 — Upgrade state machine + emergency controls
-- Upgrade flow: `propose → stage → activate` with TTL and optional timelock.
-- Emergency controls: `pause/unpause`, plus an explicit “unsafe to operate” status bit.
+- ✅ Upgrade flow: `propose → activate` with TTL and optional timelock.
+- ✅ Emergency controls: `pause/unpause` (plus runtime-enforced “unsafe” decisions off-chain).
 - Backward-compatible upgrades: allow overlap windows and multiple roots for migrations.
 
 ## Stage 4 — Deployment + integration artifacts
-- Deploy scripts and deterministic addresses (where possible).
+- ✅ Deterministic addresses for instances (CREATE2).
+- Deploy scripts for factories/registries.
 - Publish ABI + versioned artifacts to be consumed by:
   - `blackcat-core` runtime enforcement,
   - `blackcat-cli` / `blackcat-installer` operator flows.

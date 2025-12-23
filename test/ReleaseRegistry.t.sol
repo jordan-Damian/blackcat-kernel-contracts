@@ -88,4 +88,29 @@ contract ReleaseRegistryTest is TestBase {
         vm.expectRevert("ReleaseRegistry: already published");
         registry.publish(component, version, keccak256("root2"), 0, 0);
     }
+
+    function test_revoke_marks_root_untrusted() public {
+        ReleaseRegistry registry = new ReleaseRegistry(owner);
+
+        bytes32 component = keccak256("blackcat-core");
+        uint64 version = 1;
+        bytes32 root = keccak256("root");
+
+        vm.prank(owner);
+        registry.publish(component, version, root, 0, 0);
+        assertTrue(registry.isTrustedRoot(root), "root should be trusted after publish");
+
+        vm.prank(owner);
+        registry.revoke(component, version);
+
+        assertTrue(registry.isPublishedRoot(root), "root should remain published");
+        assertTrue(registry.isRevokedRoot(root), "root should be revoked");
+        assertTrue(registry.isRevokedRelease(component, version), "release should be revoked");
+        assertTrue(!registry.isTrustedRoot(root), "root should not be trusted after revoke");
+
+        bytes32 otherComponent = keccak256("blackcat-crypto");
+        vm.prank(owner);
+        vm.expectRevert("ReleaseRegistry: root revoked");
+        registry.publish(otherComponent, 1, root, 0, 0);
+    }
 }

@@ -76,6 +76,10 @@ Notes:
 - Publishing is gated (owner now; later: governance authority / Safe).
 - Releases are immutable per `(componentId, version)` (republishing is rejected; publish a new version instead).
 - Ownership uses a 2-step transfer (`transferOwnership` → `acceptOwnership`) to reduce operator mistakes.
+- The registry supports **revocation** per `(componentId, version)`:
+  - revocation permanently marks the release as revoked and its `root` as untrusted,
+  - `isTrustedRoot(root)` becomes false after revocation,
+  - publishing a release with a revoked root is rejected.
 
 ### `InstanceController` (per install)
 
@@ -86,13 +90,25 @@ State:
 - `paused`
 - `pendingUpgrade` (proposal with TTL)
 - `rootAuthority`, `upgradeAuthority`, `emergencyAuthority`
+- Optional `releaseRegistry` (if set, upgrades must reference trusted roots)
+- Optional `minUpgradeDelaySec` (timelock)
+- Optional `reporterAuthority` + `lastCheckInAt/lastCheckInOk` (monitoring agent check-in)
 
 Upgrade flow (v1):
 1. `proposeUpgrade(root, uriHash, policyHash, ttlSec)` (upgrade authority)
-2. `activateUpgrade()` (root authority, within TTL)
+2. Optional: `cancelUpgrade()` (root authority or upgrade authority)
+3. `activateUpgrade()` (root authority, within TTL and after timelock, if configured)
+
+If `releaseRegistry` is set:
+- `initialize(...)` requires the genesis `root` to be trusted in the registry.
+- `proposeUpgrade(...)` and `activateUpgrade()` require the proposed root to be trusted at the time of the call.
 
 Emergency flow:
 - `pause()` / `unpause()` (emergency authority)
+
+Monitoring / check-ins (v1):
+- `checkIn(observedRoot, observedUriHash, observedPolicyHash)` (reporter authority)
+- The controller records `(lastCheckInAt, lastCheckInOk)` for off-chain health evaluation.
 
 Runtime optimization (v1):
 - `snapshot()` aggregates the commonly-read state (paused + active hashes + pending proposal) into one `eth_call`.
@@ -102,6 +118,12 @@ Runtime optimization (v1):
 Purpose: create per-install `InstanceController` instances efficiently (EIP-1167 clones).
 
 v1 factory is intentionally permissionless; the important part is that the server pins the correct controller address in runtime config.
+
+Factory behavior (v1):
+- `releaseRegistry` is configured at deployment time (immutable, can be `0x0`).
+- `createInstance(...)` creates a clone (CREATE) and initializes it.
+- `createInstanceDeterministic(..., salt)` creates a clone via CREATE2, enabling pre-computed addresses.
+- `predictInstanceAddress(salt)` returns the deterministic CREATE2 address for the factory’s current implementation.
 
 ## Runtime policy (off-chain)
 
