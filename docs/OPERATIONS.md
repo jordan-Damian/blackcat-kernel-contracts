@@ -92,6 +92,11 @@ Scripts:
 - Emergency authority: `StartEmergencyAuthorityTransfer.s.sol`, `AcceptEmergencyAuthority.s.sol`, `CancelEmergencyAuthorityTransfer.s.sol`
 - Reporter authority: `StartReporterAuthorityTransfer.s.sol`, `AcceptReporterAuthority.s.sol`, `CancelReporterAuthorityTransfer.s.sol`
 
+Relayer option (advanced):
+- New authorities can also accept via EIP-712 signatures submitted by a relayer:
+  - `acceptRootAuthorityAuthorized(...)`, `acceptUpgradeAuthorityAuthorized(...)`, `acceptEmergencyAuthorityAuthorized(...)`, `acceptReporterAuthorityAuthorized(...)`
+- This is useful when the new authority is a Safe / `KernelAuthority` and you want multi-device approval without requiring the new authority to submit the on-chain tx itself.
+
 ## Attestations (pinning)
 
 The controller provides `attestations[key]=value` slots (root authority) to pin additional integrity facts on-chain.

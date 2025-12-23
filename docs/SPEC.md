@@ -168,6 +168,20 @@ Authorized monitoring / incidents (optional, for relayers):
   - signature may be from `rootAuthority` or `emergencyAuthority`,
   - digest includes `pauseNonce` (anti-replay); nonce is consumed by both `pause/unpause` and `setPausedAuthorized`.
 
+Authorized authority acceptance (optional, for relayers):
+- Standard 2-step rotation is: `start*Transfer(...)` (root) → `accept*Authority()` (new authority submits tx).
+- For multi-device flows where the new authority should not submit the transaction directly, the controller also supports:
+  - `acceptRootAuthorityAuthorized(...)`
+  - `acceptUpgradeAuthorityAuthorized(...)`
+  - `acceptEmergencyAuthorityAuthorized(...)`
+  - `acceptReporterAuthorityAuthorized(...)`
+- The signature must be from the **pending** authority address (EOA or EIP-1271).
+- Each role has its own transfer nonce (anti-replay across repeated start attempts):
+  - `rootAuthorityTransferNonce`
+  - `upgradeAuthorityTransferNonce`
+  - `emergencyAuthorityTransferNonce`
+  - `reporterAuthorityTransferNonce`
+
 If `releaseRegistry` is set:
 - `initialize(...)` requires the genesis `root` to be trusted in the registry.
 - `proposeUpgrade(...)` and `activateUpgrade()` require the proposed root to be trusted at the time of the call.

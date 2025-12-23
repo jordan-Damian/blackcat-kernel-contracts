@@ -133,6 +133,123 @@ contract InstanceControllerTest is TestBase {
         controller.startUpgradeAuthorityTransfer(address(0x6666666666666666666666666666666666666666));
     }
 
+    function test_acceptRootAuthorityAuthorized_accepts_pending_signature_and_prevents_reuse() public {
+        uint256 rootPk = 0xA11CE;
+        address rootAddr = vm.addr(rootPk);
+
+        uint256 newRootPk = 0xB0B;
+        address newRootAddr = vm.addr(newRootPk);
+
+        InstanceFactory f = new InstanceFactory(address(0));
+        InstanceController c = InstanceController(
+            f.createInstance(rootAddr, upgrader, emergency, genesisRoot, genesisUriHash, genesisPolicyHash)
+        );
+
+        vm.prank(rootAddr);
+        c.startRootAuthorityTransfer(newRootAddr);
+        assertEq(c.rootAuthorityTransferNonce(), 1, "root transfer nonce should increment");
+
+        uint256 deadline = block.timestamp + 3600;
+        bytes32 digest = c.hashAcceptRootAuthority(newRootAddr, deadline);
+        bytes memory sig = _sign(newRootPk, digest);
+
+        c.acceptRootAuthorityAuthorized(newRootAddr, deadline, sig);
+        assertEq(c.rootAuthority(), newRootAddr, "root authority not updated");
+
+        vm.expectRevert("InstanceController: no pending root");
+        c.acceptRootAuthorityAuthorized(newRootAddr, deadline, sig);
+    }
+
+    function test_acceptRootAuthorityAuthorized_rejects_stale_signature_after_restart() public {
+        uint256 rootPk = 0xA11CE;
+        address rootAddr = vm.addr(rootPk);
+
+        uint256 newRootPk = 0xB0B;
+        address newRootAddr = vm.addr(newRootPk);
+
+        InstanceFactory f = new InstanceFactory(address(0));
+        InstanceController c = InstanceController(
+            f.createInstance(rootAddr, upgrader, emergency, genesisRoot, genesisUriHash, genesisPolicyHash)
+        );
+
+        vm.prank(rootAddr);
+        c.startRootAuthorityTransfer(newRootAddr);
+
+        uint256 deadline = block.timestamp + 3600;
+        bytes32 digest = c.hashAcceptRootAuthority(newRootAddr, deadline);
+        bytes memory sig = _sign(newRootPk, digest);
+
+        vm.prank(rootAddr);
+        c.startRootAuthorityTransfer(newRootAddr);
+
+        vm.expectRevert("InstanceController: invalid pending root signature");
+        c.acceptRootAuthorityAuthorized(newRootAddr, deadline, sig);
+    }
+
+    function test_acceptUpgradeAuthorityAuthorized_accepts_pending_signature() public {
+        uint256 rootPk = 0xA11CE;
+        address rootAddr = vm.addr(rootPk);
+
+        uint256 newUpgradePk = 0xB0B;
+        address newUpgradeAddr = vm.addr(newUpgradePk);
+
+        InstanceFactory f = new InstanceFactory(address(0));
+        InstanceController c = InstanceController(
+            f.createInstance(rootAddr, upgrader, emergency, genesisRoot, genesisUriHash, genesisPolicyHash)
+        );
+
+        vm.prank(rootAddr);
+        c.startUpgradeAuthorityTransfer(newUpgradeAddr);
+        assertEq(c.upgradeAuthorityTransferNonce(), 1, "upgrade transfer nonce should increment");
+
+        uint256 deadline = block.timestamp + 3600;
+        bytes32 digest = c.hashAcceptUpgradeAuthority(newUpgradeAddr, deadline);
+        bytes memory sig = _sign(newUpgradePk, digest);
+
+        c.acceptUpgradeAuthorityAuthorized(newUpgradeAddr, deadline, sig);
+        assertEq(c.upgradeAuthority(), newUpgradeAddr, "upgrade authority not updated");
+    }
+
+    function test_acceptEmergencyAuthorityAuthorized_accepts_pending_signature() public {
+        uint256 rootPk = 0xA11CE;
+        address rootAddr = vm.addr(rootPk);
+
+        uint256 newEmergencyPk = 0xB0B;
+        address newEmergencyAddr = vm.addr(newEmergencyPk);
+
+        InstanceFactory f = new InstanceFactory(address(0));
+        InstanceController c = InstanceController(
+            f.createInstance(rootAddr, upgrader, emergency, genesisRoot, genesisUriHash, genesisPolicyHash)
+        );
+
+        vm.prank(rootAddr);
+        c.startEmergencyAuthorityTransfer(newEmergencyAddr);
+        assertEq(c.emergencyAuthorityTransferNonce(), 1, "emergency transfer nonce should increment");
+
+        uint256 deadline = block.timestamp + 3600;
+        bytes32 digest = c.hashAcceptEmergencyAuthority(newEmergencyAddr, deadline);
+        bytes memory sig = _sign(newEmergencyPk, digest);
+
+        c.acceptEmergencyAuthorityAuthorized(newEmergencyAddr, deadline, sig);
+        assertEq(c.emergencyAuthority(), newEmergencyAddr, "emergency authority not updated");
+    }
+
+    function test_acceptReporterAuthorityAuthorized_accepts_pending_signature() public {
+        uint256 reporterPk = 0xCAFE;
+        address reporterAddr = vm.addr(reporterPk);
+
+        vm.prank(root);
+        controller.startReporterAuthorityTransfer(reporterAddr);
+        assertEq(controller.reporterAuthorityTransferNonce(), 1, "reporter transfer nonce should increment");
+
+        uint256 deadline = block.timestamp + 3600;
+        bytes32 digest = controller.hashAcceptReporterAuthority(reporterAddr, deadline);
+        bytes memory sig = _sign(reporterPk, digest);
+
+        controller.acceptReporterAuthorityAuthorized(reporterAddr, deadline, sig);
+        assertEq(controller.reporterAuthority(), reporterAddr, "reporter authority not updated");
+    }
+
     function test_attestations_are_root_controlled() public {
         bytes32 key = keccak256("config.runtime.v1");
         bytes32 v1 = keccak256("v1");

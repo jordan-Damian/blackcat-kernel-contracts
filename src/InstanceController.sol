@@ -35,6 +35,13 @@ contract InstanceController {
         keccak256("ReportIncident(bytes32 incidentHash,uint256 nonce,uint256 deadline)");
     bytes32 private constant SET_PAUSED_TYPEHASH =
         keccak256("SetPaused(bool expectedPaused,bool newPaused,uint256 nonce,uint256 deadline)");
+    bytes32 private constant ACCEPT_AUTHORITY_TYPEHASH =
+        keccak256("AcceptAuthority(bytes32 role,address newAuthority,uint256 nonce,uint256 deadline)");
+
+    bytes32 private constant ROLE_ROOT_AUTHORITY = keccak256("root_authority");
+    bytes32 private constant ROLE_UPGRADE_AUTHORITY = keccak256("upgrade_authority");
+    bytes32 private constant ROLE_EMERGENCY_AUTHORITY = keccak256("emergency_authority");
+    bytes32 private constant ROLE_REPORTER_AUTHORITY = keccak256("reporter_authority");
 
     bytes4 private constant EIP1271_MAGICVALUE = 0x1626ba7e;
     uint256 private constant SECP256K1N_HALF = 0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0;
@@ -101,6 +108,11 @@ contract InstanceController {
     uint256 public reporterNonce;
     uint256 public incidentNonce;
     uint256 public pauseNonce;
+
+    uint256 public rootAuthorityTransferNonce;
+    uint256 public upgradeAuthorityTransferNonce;
+    uint256 public emergencyAuthorityTransferNonce;
+    uint256 public reporterAuthorityTransferNonce;
 
     event Initialized(
         address indexed factory,
@@ -260,6 +272,7 @@ contract InstanceController {
 
     function startRootAuthorityTransfer(address newValue) external onlyRootAuthority {
         require(newValue != address(0), "InstanceController: root=0");
+        rootAuthorityTransferNonce += 1;
         pendingRootAuthority = newValue;
         emit RootAuthorityTransferStarted(rootAuthority, newValue);
     }
@@ -281,8 +294,38 @@ contract InstanceController {
         emit RootAuthorityChanged(previousValue, pendingValue);
     }
 
+    function hashAcceptRootAuthority(address expectedNewAuthority, uint256 deadline) external view returns (bytes32) {
+        address pendingValue = pendingRootAuthority;
+        require(pendingValue != address(0), "InstanceController: no pending root");
+        require(pendingValue == expectedNewAuthority, "InstanceController: pending root mismatch");
+        return _hashAcceptAuthority(ROLE_ROOT_AUTHORITY, expectedNewAuthority, rootAuthorityTransferNonce, deadline);
+    }
+
+    function acceptRootAuthorityAuthorized(address expectedNewAuthority, uint256 deadline, bytes calldata signature)
+        external
+    {
+        require(block.timestamp <= deadline, "InstanceController: expired");
+
+        address pendingValue = pendingRootAuthority;
+        require(pendingValue != address(0), "InstanceController: no pending root");
+        require(pendingValue == expectedNewAuthority, "InstanceController: pending root mismatch");
+
+        bytes32 digest =
+            _hashAcceptAuthority(ROLE_ROOT_AUTHORITY, expectedNewAuthority, rootAuthorityTransferNonce, deadline);
+        require(
+            _isValidSignatureNow(pendingValue, digest, signature), "InstanceController: invalid pending root signature"
+        );
+        emit AuthoritySignatureConsumed(pendingValue, digest, msg.sender);
+
+        address previousValue = rootAuthority;
+        rootAuthority = pendingValue;
+        pendingRootAuthority = address(0);
+        emit RootAuthorityChanged(previousValue, pendingValue);
+    }
+
     function startUpgradeAuthorityTransfer(address newValue) external onlyRootAuthority {
         require(newValue != address(0), "InstanceController: upgrade=0");
+        upgradeAuthorityTransferNonce += 1;
         pendingUpgradeAuthority = newValue;
         emit UpgradeAuthorityTransferStarted(upgradeAuthority, newValue);
     }
@@ -304,8 +347,44 @@ contract InstanceController {
         emit UpgradeAuthorityChanged(previousValue, pendingValue);
     }
 
+    function hashAcceptUpgradeAuthority(address expectedNewAuthority, uint256 deadline)
+        external
+        view
+        returns (bytes32)
+    {
+        address pendingValue = pendingUpgradeAuthority;
+        require(pendingValue != address(0), "InstanceController: no pending upgrade");
+        require(pendingValue == expectedNewAuthority, "InstanceController: pending upgrade mismatch");
+        return
+            _hashAcceptAuthority(ROLE_UPGRADE_AUTHORITY, expectedNewAuthority, upgradeAuthorityTransferNonce, deadline);
+    }
+
+    function acceptUpgradeAuthorityAuthorized(address expectedNewAuthority, uint256 deadline, bytes calldata signature)
+        external
+    {
+        require(block.timestamp <= deadline, "InstanceController: expired");
+
+        address pendingValue = pendingUpgradeAuthority;
+        require(pendingValue != address(0), "InstanceController: no pending upgrade");
+        require(pendingValue == expectedNewAuthority, "InstanceController: pending upgrade mismatch");
+
+        bytes32 digest =
+            _hashAcceptAuthority(ROLE_UPGRADE_AUTHORITY, expectedNewAuthority, upgradeAuthorityTransferNonce, deadline);
+        require(
+            _isValidSignatureNow(pendingValue, digest, signature),
+            "InstanceController: invalid pending upgrade signature"
+        );
+        emit AuthoritySignatureConsumed(pendingValue, digest, msg.sender);
+
+        address previousValue = upgradeAuthority;
+        upgradeAuthority = pendingValue;
+        pendingUpgradeAuthority = address(0);
+        emit UpgradeAuthorityChanged(previousValue, pendingValue);
+    }
+
     function startEmergencyAuthorityTransfer(address newValue) external onlyRootAuthority {
         require(newValue != address(0), "InstanceController: emergency=0");
+        emergencyAuthorityTransferNonce += 1;
         pendingEmergencyAuthority = newValue;
         emit EmergencyAuthorityTransferStarted(emergencyAuthority, newValue);
     }
@@ -321,6 +400,46 @@ contract InstanceController {
         address pendingValue = pendingEmergencyAuthority;
         require(pendingValue != address(0), "InstanceController: no pending emergency");
         require(msg.sender == pendingValue, "InstanceController: not pending emergency");
+        address previousValue = emergencyAuthority;
+        emergencyAuthority = pendingValue;
+        pendingEmergencyAuthority = address(0);
+        emit EmergencyAuthorityChanged(previousValue, pendingValue);
+    }
+
+    function hashAcceptEmergencyAuthority(address expectedNewAuthority, uint256 deadline)
+        external
+        view
+        returns (bytes32)
+    {
+        address pendingValue = pendingEmergencyAuthority;
+        require(pendingValue != address(0), "InstanceController: no pending emergency");
+        require(pendingValue == expectedNewAuthority, "InstanceController: pending emergency mismatch");
+        return
+            _hashAcceptAuthority(
+                ROLE_EMERGENCY_AUTHORITY, expectedNewAuthority, emergencyAuthorityTransferNonce, deadline
+            );
+    }
+
+    function acceptEmergencyAuthorityAuthorized(
+        address expectedNewAuthority,
+        uint256 deadline,
+        bytes calldata signature
+    ) external {
+        require(block.timestamp <= deadline, "InstanceController: expired");
+
+        address pendingValue = pendingEmergencyAuthority;
+        require(pendingValue != address(0), "InstanceController: no pending emergency");
+        require(pendingValue == expectedNewAuthority, "InstanceController: pending emergency mismatch");
+
+        bytes32 digest = _hashAcceptAuthority(
+            ROLE_EMERGENCY_AUTHORITY, expectedNewAuthority, emergencyAuthorityTransferNonce, deadline
+        );
+        require(
+            _isValidSignatureNow(pendingValue, digest, signature),
+            "InstanceController: invalid pending emergency signature"
+        );
+        emit AuthoritySignatureConsumed(pendingValue, digest, msg.sender);
+
         address previousValue = emergencyAuthority;
         emergencyAuthority = pendingValue;
         pendingEmergencyAuthority = address(0);
@@ -353,6 +472,7 @@ contract InstanceController {
 
     function startReporterAuthorityTransfer(address newValue) external onlyRootAuthority {
         require(newValue != address(0), "InstanceController: reporter=0");
+        reporterAuthorityTransferNonce += 1;
         pendingReporterAuthority = newValue;
         emit ReporterAuthorityTransferStarted(reporterAuthority, newValue);
     }
@@ -368,6 +488,44 @@ contract InstanceController {
         address pendingValue = pendingReporterAuthority;
         require(pendingValue != address(0), "InstanceController: no pending reporter");
         require(msg.sender == pendingValue, "InstanceController: not pending reporter");
+        address previousValue = reporterAuthority;
+        reporterAuthority = pendingValue;
+        pendingReporterAuthority = address(0);
+        emit ReporterAuthorityChanged(previousValue, pendingValue);
+    }
+
+    function hashAcceptReporterAuthority(address expectedNewAuthority, uint256 deadline)
+        external
+        view
+        returns (bytes32)
+    {
+        address pendingValue = pendingReporterAuthority;
+        require(pendingValue != address(0), "InstanceController: no pending reporter");
+        require(pendingValue == expectedNewAuthority, "InstanceController: pending reporter mismatch");
+        return
+            _hashAcceptAuthority(
+                ROLE_REPORTER_AUTHORITY, expectedNewAuthority, reporterAuthorityTransferNonce, deadline
+            );
+    }
+
+    function acceptReporterAuthorityAuthorized(address expectedNewAuthority, uint256 deadline, bytes calldata signature)
+        external
+    {
+        require(block.timestamp <= deadline, "InstanceController: expired");
+
+        address pendingValue = pendingReporterAuthority;
+        require(pendingValue != address(0), "InstanceController: no pending reporter");
+        require(pendingValue == expectedNewAuthority, "InstanceController: pending reporter mismatch");
+
+        bytes32 digest = _hashAcceptAuthority(
+            ROLE_REPORTER_AUTHORITY, expectedNewAuthority, reporterAuthorityTransferNonce, deadline
+        );
+        require(
+            _isValidSignatureNow(pendingValue, digest, signature),
+            "InstanceController: invalid pending reporter signature"
+        );
+        emit AuthoritySignatureConsumed(pendingValue, digest, msg.sender);
+
         address previousValue = reporterAuthority;
         reporterAuthority = pendingValue;
         pendingReporterAuthority = address(0);
@@ -896,6 +1054,15 @@ contract InstanceController {
         } else {
             emit Unpaused(by);
         }
+    }
+
+    function _hashAcceptAuthority(bytes32 role, address newAuthority, uint256 nonce, uint256 deadline)
+        private
+        view
+        returns (bytes32)
+    {
+        bytes32 structHash = keccak256(abi.encode(ACCEPT_AUTHORITY_TYPEHASH, role, newAuthority, nonce, deadline));
+        return keccak256(abi.encodePacked("\x19\x01", domainSeparator(), structHash));
     }
 
     function snapshot()
