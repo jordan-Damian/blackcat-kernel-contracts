@@ -779,6 +779,14 @@ contract InstanceControllerTest is TestBase {
         controller.setMinUpgradeDelaySec(tooLarge);
     }
 
+    function test_proposeUpgrade_rejects_ttl_too_large() public {
+        uint64 tooLarge = controller.MAX_UPGRADE_TTL_SEC() + 1;
+
+        vm.prank(upgrader);
+        vm.expectRevert("InstanceController: ttl too large");
+        controller.proposeUpgrade(keccak256("root"), 0, 0, tooLarge);
+    }
+
     function test_checkIn_tracks_runtime_state() public {
         address reporter = address(0x7777777777777777777777777777777777777777);
 

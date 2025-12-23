@@ -55,6 +55,7 @@ contract InstanceController {
 
     uint8 public constant VERSION = 1;
     uint64 public constant MAX_UPGRADE_DELAY_SEC = 30 days;
+    uint64 public constant MAX_UPGRADE_TTL_SEC = 30 days;
     uint64 public constant MAX_COMPATIBILITY_WINDOW_SEC = 30 days;
 
     struct UpgradeProposal {
@@ -863,6 +864,7 @@ contract InstanceController {
     {
         require(root != bytes32(0), "InstanceController: root=0");
         require(ttlSec != 0, "InstanceController: ttl=0");
+        require(ttlSec <= MAX_UPGRADE_TTL_SEC, "InstanceController: ttl too large");
 
         address registry = releaseRegistry;
         if (registry != address(0)) {
@@ -889,6 +891,7 @@ contract InstanceController {
         require(componentId != bytes32(0), "InstanceController: componentId=0");
         require(version != 0, "InstanceController: version=0");
         require(ttlSec != 0, "InstanceController: ttl=0");
+        require(ttlSec <= MAX_UPGRADE_TTL_SEC, "InstanceController: ttl too large");
 
         address registry = releaseRegistry;
         require(registry != address(0), "InstanceController: no registry");

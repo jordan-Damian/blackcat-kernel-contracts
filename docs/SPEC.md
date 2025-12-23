@@ -133,6 +133,7 @@ State:
 Upgrade flow (v1):
 1. `proposeUpgrade(root, uriHash, policyHash, ttlSec)` (upgrade authority)
    - Optional: `proposeUpgradeByRelease(componentId, version, policyHash, ttlSec)` fetches `{root, uriHash}` from `ReleaseRegistry.get(...)`.
+   - `ttlSec` is bounded by `MAX_UPGRADE_TTL_SEC` (v1 default: `30 days`).
 2. Optional: `cancelUpgrade()` (root authority or upgrade authority)
    - Optional: `cancelUpgradeAuthorized(...)` allows a relayer to cancel using a `rootAuthority` EIP-712 signature (EOA or EIP-1271).
 3. `activateUpgrade()` (root authority, within TTL and after timelock, if configured)
