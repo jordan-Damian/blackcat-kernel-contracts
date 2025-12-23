@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "component": {
+    "id": "blackcat-kernel-contracts",
+    "name": "BlackCat Trust Kernel Contracts",
+    "description": "EVM contracts that act as the trust authority for BlackCat installs/upgrades.",
+    "homepage": "https://github.com/blackcatacademy/blackcat-kernel-contracts"
+  },
+  "cli": {
+    "entrypoints": [
+      {
+        "id": "trust",
+        "command": "trust",
+        "summary": "Trust kernel helpers (request bundles, status/verify planned).",
+        "type": "builtin"
+      }
+    ]
+  }
+}
+

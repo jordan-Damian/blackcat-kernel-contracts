@@ -1,0 +1,50 @@
+# BlackCat Kernel Contracts — Roadmap
+
+This roadmap tracks the contract layer of the BlackCat “trust kernel” (Web3 / EVM).
+
+## Stage 0 — Specification (current)
+- Threat model and invariants (what must never be possible).
+- Canonical hashing rules for “release root” and “installed state root” (shared with `blackcat-integrity`).
+- Contract interfaces and event schema:
+  - `ReleaseRegistry` (official releases),
+  - `InstanceController` (per-install trust authority),
+  - `InstanceFactory` (setup ceremony + cloning).
+- Trust modes and storage budgets:
+  - `root+uri` baseline (cheap),
+  - `full detail` mode (paranoid; chunked on-chain bytes or per-file hashes).
+- Governance model:
+  - authorities as external multisig wallets (Safe) rather than custom on-chain multisig logic,
+  - separation of `root_authority` vs `upgrade_authority` vs `emergency_authority`.
+
+## Stage 1 — Foundry scaffold + skeleton contracts
+- Foundry project scaffold (`foundry.toml`, fmt/lint/test workflows).
+- Implement skeletons with explicit events and minimal storage:
+  - `ReleaseRegistry` mapping `componentId+version → root, uri, meta`,
+  - `InstanceController` storing `active_root`, `active_uri`, `paused`, and upgrade slots,
+  - `InstanceFactory` cloning controllers and emitting setup receipts.
+- Basic unit tests for storage, access control, and event emission.
+
+## Stage 2 — Setup ceremony (multi-device bootstrap)
+- Setup nonce + replay protection.
+- EIP-712 typed “setup request” signatures (offline review + multi-device confirmation).
+- Finalization flow:
+  - binds the controller to chosen authorities,
+  - pins the initial trust mode and policy hash,
+  - emits an immutable “genesis” event for the installation.
+
+## Stage 3 — Upgrade state machine + emergency controls
+- Upgrade flow: `propose → stage → activate` with TTL and optional timelock.
+- Emergency controls: `pause/unpause`, plus an explicit “unsafe to operate” status bit.
+- Backward-compatible upgrades: allow overlap windows and multiple roots for migrations.
+
+## Stage 4 — Deployment + integration artifacts
+- Deploy scripts and deterministic addresses (where possible).
+- Publish ABI + versioned artifacts to be consumed by:
+  - `blackcat-core` runtime enforcement,
+  - `blackcat-cli` / `blackcat-installer` operator flows.
+
+## Stage 5 — Audit & hardening
+- External security audit + formal invariant review.
+- Gas/cost benchmarks for trust modes.
+- Upgrade safety: explicit “break glass” controls and post-incident recovery runbooks.
+
