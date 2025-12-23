@@ -2,6 +2,15 @@ name: Bug report
 description: Report a bug in BlackCat Kernel Contracts
 labels: [bug]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Security note:
+        - **Do not** post private keys, seed phrases, or wallet exports.
+        - If you believe this is a security issue, follow `SECURITY.md` instead of filing a public issue.
+
+        For on-chain issues, please include the contract address + transaction hash so the report is verifiable.
+
   - type: textarea
     id: what-happened
     attributes:
@@ -10,15 +19,73 @@ body:
     validations:
       required: true
   - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should have happened?
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What happened instead?
+  - type: textarea
     id: steps
     attributes:
       label: Steps to reproduce
       description: 1) … 2) … 3) …
+  - type: checkboxes
+    id: affected
+    attributes:
+      label: Affected area
+      description: Which contract(s) or tooling are affected?
+      options:
+        - label: InstanceController
+        - label: InstanceFactory
+        - label: ReleaseRegistry
+        - label: KernelAuthority
+        - label: ManifestStore
+        - label: Foundry scripts (script/)
+        - label: Docs/spec
+  - type: input
+    id: chain-id
+    attributes:
+      label: Chain ID
+      description: Example: 4207
+      placeholder: "4207"
+    validations:
+      required: false
+  - type: input
+    id: rpc
+    attributes:
+      label: RPC endpoint(s)
+      description: List the RPC(s) you used (redact credentials/tokens).
+      placeholder: https://rpc.layeredge.io
+    validations:
+      required: false
+  - type: input
+    id: tx
+    attributes:
+      label: Transaction hash (if any)
+      description: Tx hash for the failing on-chain call.
+      placeholder: 0x…
+    validations:
+      required: false
+  - type: textarea
+    id: addresses
+    attributes:
+      label: Relevant contract addresses
+      description: Include the addresses involved (e.g. controller/factory/registry/store).
+      placeholder: |
+        InstanceController: 0x…
+        InstanceFactory: 0x…
+        ReleaseRegistry: 0x…
+        ManifestStore: 0x…
+        KernelAuthority (if used): 0x…
   - type: textarea
     id: versions
     attributes:
       label: Versions / environment
-      description: Include Foundry version, solc version, chain id (if relevant).
+      description: Include Foundry version, solc version, and the repo commit hash/tag you deployed from.
       render: shell
   - type: textarea
     id: logs
@@ -29,4 +96,3 @@ body:
     id: extra
     attributes:
       label: Extra context
-
