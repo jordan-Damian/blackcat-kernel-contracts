@@ -11,8 +11,14 @@ contract ReleaseRegistry {
     bytes32 private constant PUBLISH_TYPEHASH = keccak256(
         "Publish(bytes32 componentId,uint64 version,bytes32 root,bytes32 uriHash,bytes32 metaHash,uint256 nonce,uint256 deadline)"
     );
+    bytes32 private constant PUBLISH_BATCH_TYPEHASH =
+        keccak256("PublishBatch(bytes32 itemsHash,uint256 nonce,uint256 deadline)");
     bytes32 private constant REVOKE_TYPEHASH =
         keccak256("Revoke(bytes32 componentId,uint64 version,bytes32 root,uint256 nonce,uint256 deadline)");
+    bytes32 private constant REVOKE_BATCH_TYPEHASH =
+        keccak256("RevokeBatch(bytes32 itemsHash,uint256 nonce,uint256 deadline)");
+    bytes32 private constant REVOKE_BY_ROOT_TYPEHASH =
+        keccak256("RevokeByRoot(bytes32 root,bytes32 componentId,uint64 version,uint256 nonce,uint256 deadline)");
     bytes32 private constant TRANSFER_OWNERSHIP_TYPEHASH =
         keccak256("TransferOwnership(address newOwner,uint256 nonce,uint256 deadline)");
     bytes32 private constant ACCEPT_OWNERSHIP_TYPEHASH =
@@ -33,6 +39,20 @@ contract ReleaseRegistry {
         uint64 version;
         bytes32 uriHash;
         bytes32 metaHash;
+    }
+
+    struct PublishBatchItem {
+        bytes32 componentId;
+        uint64 version;
+        bytes32 root;
+        bytes32 uriHash;
+        bytes32 metaHash;
+    }
+
+    struct RevokeBatchItem {
+        bytes32 componentId;
+        uint64 version;
+        bytes32 root;
     }
 
     address public owner;
@@ -198,6 +218,15 @@ contract ReleaseRegistry {
         return keccak256(abi.encodePacked("\x19\x01", domainSeparator(), structHash));
     }
 
+    function hashPublishBatch(PublishBatchItem[] calldata items, uint256 deadline) external view returns (bytes32) {
+        uint256 n = items.length;
+        require(n != 0, "ReleaseRegistry: empty batch");
+
+        bytes32 structHash =
+            keccak256(abi.encode(PUBLISH_BATCH_TYPEHASH, keccak256(abi.encode(items)), publishNonce, deadline));
+        return keccak256(abi.encodePacked("\x19\x01", domainSeparator(), structHash));
+    }
+
     function publishAuthorized(
         bytes32 componentId,
         uint64 version,
@@ -219,6 +248,28 @@ contract ReleaseRegistry {
         emit SignatureConsumed(currentOwner, digest, msg.sender);
 
         _publish(componentId, version, root, uriHash, metaHash);
+    }
+
+    function publishBatchAuthorized(PublishBatchItem[] calldata items, uint256 deadline, bytes calldata signature)
+        external
+    {
+        require(block.timestamp <= deadline, "ReleaseRegistry: expired");
+
+        uint256 n = items.length;
+        require(n != 0, "ReleaseRegistry: empty batch");
+
+        bytes32 structHash =
+            keccak256(abi.encode(PUBLISH_BATCH_TYPEHASH, keccak256(abi.encode(items)), publishNonce, deadline));
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator(), structHash));
+
+        address currentOwner = owner;
+        require(_isValidSignatureNow(currentOwner, digest, signature), "ReleaseRegistry: invalid owner signature");
+        emit SignatureConsumed(currentOwner, digest, msg.sender);
+
+        for (uint256 i = 0; i < n; i++) {
+            PublishBatchItem calldata item = items[i];
+            _publish(item.componentId, item.version, item.root, item.uriHash, item.metaHash);
+        }
     }
 
     function revoke(bytes32 componentId, uint64 version) external onlyOwner {
@@ -264,6 +315,26 @@ contract ReleaseRegistry {
         return keccak256(abi.encodePacked("\x19\x01", domainSeparator(), structHash));
     }
 
+    function hashRevokeBatch(RevokeBatchItem[] calldata items, uint256 deadline) external view returns (bytes32) {
+        uint256 n = items.length;
+        require(n != 0, "ReleaseRegistry: empty batch");
+
+        bytes32 structHash =
+            keccak256(abi.encode(REVOKE_BATCH_TYPEHASH, keccak256(abi.encode(items)), revokeNonce, deadline));
+        return keccak256(abi.encodePacked("\x19\x01", domainSeparator(), structHash));
+    }
+
+    function hashRevokeByRoot(bytes32 root, uint256 deadline) external view returns (bytes32) {
+        require(root != bytes32(0), "ReleaseRegistry: root=0");
+
+        RootIndex memory idx = rootIndex[root];
+        require(idx.componentId != bytes32(0), "ReleaseRegistry: root not found");
+
+        bytes32 structHash =
+            keccak256(abi.encode(REVOKE_BY_ROOT_TYPEHASH, root, idx.componentId, idx.version, revokeNonce, deadline));
+        return keccak256(abi.encodePacked("\x19\x01", domainSeparator(), structHash));
+    }
+
     function revokeAuthorized(
         bytes32 componentId,
         uint64 version,
@@ -284,6 +355,49 @@ contract ReleaseRegistry {
         Release memory rel = releases[componentId][version];
         require(rel.root == root, "ReleaseRegistry: root mismatch");
         _revoke(componentId, version);
+    }
+
+    function revokeBatchAuthorized(RevokeBatchItem[] calldata items, uint256 deadline, bytes calldata signature)
+        external
+    {
+        require(block.timestamp <= deadline, "ReleaseRegistry: expired");
+
+        uint256 n = items.length;
+        require(n != 0, "ReleaseRegistry: empty batch");
+
+        bytes32 structHash =
+            keccak256(abi.encode(REVOKE_BATCH_TYPEHASH, keccak256(abi.encode(items)), revokeNonce, deadline));
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator(), structHash));
+
+        address currentOwner = owner;
+        require(_isValidSignatureNow(currentOwner, digest, signature), "ReleaseRegistry: invalid owner signature");
+        emit SignatureConsumed(currentOwner, digest, msg.sender);
+
+        for (uint256 i = 0; i < n; i++) {
+            RevokeBatchItem calldata item = items[i];
+            require(item.root != bytes32(0), "ReleaseRegistry: root=0");
+            Release memory rel = releases[item.componentId][item.version];
+            require(rel.root == item.root, "ReleaseRegistry: root mismatch");
+            _revoke(item.componentId, item.version);
+        }
+    }
+
+    function revokeByRootAuthorized(bytes32 root, uint256 deadline, bytes calldata signature) external {
+        require(block.timestamp <= deadline, "ReleaseRegistry: expired");
+        require(root != bytes32(0), "ReleaseRegistry: root=0");
+
+        RootIndex memory idx = rootIndex[root];
+        require(idx.componentId != bytes32(0), "ReleaseRegistry: root not found");
+
+        bytes32 structHash =
+            keccak256(abi.encode(REVOKE_BY_ROOT_TYPEHASH, root, idx.componentId, idx.version, revokeNonce, deadline));
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator(), structHash));
+
+        address currentOwner = owner;
+        require(_isValidSignatureNow(currentOwner, digest, signature), "ReleaseRegistry: invalid owner signature");
+        emit SignatureConsumed(currentOwner, digest, msg.sender);
+
+        _revoke(idx.componentId, idx.version);
     }
 
     function get(bytes32 componentId, uint64 version) external view returns (Release memory) {

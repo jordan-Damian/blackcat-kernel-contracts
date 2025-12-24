@@ -25,6 +25,7 @@ Foundry scripts (see `blackcat-kernel-contracts/script/`):
 Use `PublishRelease.s.sol` to publish official releases into `ReleaseRegistry`.
 Relayer option (EIP-712):
 - `PublishReleaseAuthorized.s.sol` calls `publishAuthorized(...)` with an owner signature.
+- Batch relayer primitive: `publishBatchAuthorized(PublishBatchItem[] items, ...)` (intended for `blackcat-cli` / `cast send` because Foundry env does not encode struct arrays well).
 
 Inputs you must compute off-chain:
 - `componentId` (`bytes32`) — stable component identifier
@@ -36,6 +37,8 @@ Inputs you must compute off-chain:
 Revocation:
 - Use `RevokeRelease.s.sol` to revoke a `(componentId, version)`.
 - Relayer option: `RevokeReleaseAuthorized.s.sol` calls `revokeAuthorized(...)` with an owner signature.
+- Revoke by root (relayer): `RevokeByRootAuthorized.s.sol` calls `revokeByRootAuthorized(...)`.
+- Batch relayer primitive: `revokeBatchAuthorized(RevokeBatchItem[] items, ...)` (intended for `blackcat-cli` / `cast send`).
 
 ## Create instance (per install)
 

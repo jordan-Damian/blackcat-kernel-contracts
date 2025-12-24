@@ -264,6 +264,51 @@ contract ReleaseRegistryTest is TestBase {
         registry.publishAuthorized(component, version, root, uriHash, metaHash, deadline, sig);
     }
 
+    function test_publishBatchAuthorized_accepts_eoa_owner_signature_and_is_not_replayable() public {
+        uint256 ownerPk = 0xA11CE;
+        address ownerAddr = vm.addr(ownerPk);
+        ReleaseRegistry registry = new ReleaseRegistry(ownerAddr);
+
+        ReleaseRegistry.PublishBatchItem[] memory items = new ReleaseRegistry.PublishBatchItem[](2);
+        items[0] = ReleaseRegistry.PublishBatchItem({
+            componentId: keccak256("blackcat-core"),
+            version: 1,
+            root: keccak256("root-batch-1"),
+            uriHash: keccak256("uri-batch-1"),
+            metaHash: keccak256("meta-batch-1")
+        });
+        items[1] = ReleaseRegistry.PublishBatchItem({
+            componentId: keccak256("blackcat-crypto"),
+            version: 1,
+            root: keccak256("root-batch-2"),
+            uriHash: keccak256("uri-batch-2"),
+            metaHash: keccak256("meta-batch-2")
+        });
+
+        uint256 deadline = block.timestamp + 3600;
+        bytes32 digest = registry.hashPublishBatch(items, deadline);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPk, digest);
+        bytes memory sig = abi.encodePacked(r, s, v);
+
+        registry.publishBatchAuthorized(items, deadline, sig);
+        assertTrue(registry.isTrustedRoot(items[0].root), "root1 should be trusted");
+        assertTrue(registry.isTrustedRoot(items[1].root), "root2 should be trusted");
+
+        vm.expectRevert("ReleaseRegistry: invalid owner signature");
+        registry.publishBatchAuthorized(items, deadline, sig);
+    }
+
+    function test_publishBatchAuthorized_rejects_empty_batch() public {
+        address ownerAddr = vm.addr(0xA11CE);
+        ReleaseRegistry registry = new ReleaseRegistry(ownerAddr);
+
+        ReleaseRegistry.PublishBatchItem[] memory items = new ReleaseRegistry.PublishBatchItem[](0);
+
+        uint256 deadline = block.timestamp + 3600;
+        vm.expectRevert("ReleaseRegistry: empty batch");
+        registry.publishBatchAuthorized(items, deadline, "");
+    }
+
     function test_revokeAuthorized_accepts_eoa_owner_signature() public {
         uint256 ownerPk = 0xA11CE;
         address ownerAddr = vm.addr(ownerPk);
@@ -282,6 +327,58 @@ contract ReleaseRegistryTest is TestBase {
         bytes memory sig = abi.encodePacked(r, s, v);
 
         registry.revokeAuthorized(component, version, root, deadline, sig);
+        assertTrue(registry.isRevokedRoot(root), "root should be revoked");
+    }
+
+    function test_revokeBatchAuthorized_accepts_eoa_owner_signature_and_is_not_replayable() public {
+        uint256 ownerPk = 0xA11CE;
+        address ownerAddr = vm.addr(ownerPk);
+        ReleaseRegistry registry = new ReleaseRegistry(ownerAddr);
+
+        bytes32 componentA = keccak256("blackcat-core");
+        bytes32 componentB = keccak256("blackcat-crypto");
+        bytes32 rootA = keccak256("root-revoke-batch-1");
+        bytes32 rootB = keccak256("root-revoke-batch-2");
+
+        vm.prank(ownerAddr);
+        registry.publish(componentA, 1, rootA, 0, 0);
+        vm.prank(ownerAddr);
+        registry.publish(componentB, 1, rootB, 0, 0);
+
+        ReleaseRegistry.RevokeBatchItem[] memory items = new ReleaseRegistry.RevokeBatchItem[](2);
+        items[0] = ReleaseRegistry.RevokeBatchItem({componentId: componentA, version: 1, root: rootA});
+        items[1] = ReleaseRegistry.RevokeBatchItem({componentId: componentB, version: 1, root: rootB});
+
+        uint256 deadline = block.timestamp + 3600;
+        bytes32 digest = registry.hashRevokeBatch(items, deadline);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPk, digest);
+        bytes memory sig = abi.encodePacked(r, s, v);
+
+        registry.revokeBatchAuthorized(items, deadline, sig);
+        assertTrue(registry.isRevokedRoot(rootA), "rootA should be revoked");
+        assertTrue(registry.isRevokedRoot(rootB), "rootB should be revoked");
+
+        vm.expectRevert("ReleaseRegistry: invalid owner signature");
+        registry.revokeBatchAuthorized(items, deadline, sig);
+    }
+
+    function test_revokeByRootAuthorized_accepts_eoa_owner_signature() public {
+        uint256 ownerPk = 0xA11CE;
+        address ownerAddr = vm.addr(ownerPk);
+        ReleaseRegistry registry = new ReleaseRegistry(ownerAddr);
+
+        bytes32 component = keccak256("blackcat-core");
+        bytes32 root = keccak256("root-revoke-by-root");
+
+        vm.prank(ownerAddr);
+        registry.publish(component, 1, root, 0, 0);
+
+        uint256 deadline = block.timestamp + 3600;
+        bytes32 digest = registry.hashRevokeByRoot(root, deadline);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPk, digest);
+        bytes memory sig = abi.encodePacked(r, s, v);
+
+        registry.revokeByRootAuthorized(root, deadline, sig);
         assertTrue(registry.isRevokedRoot(root), "root should be revoked");
     }
 

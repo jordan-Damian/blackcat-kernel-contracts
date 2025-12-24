@@ -82,6 +82,9 @@ Notes:
 - Ownership uses a 2-step transfer (`transferOwnership` → `acceptOwnership`) to reduce operator mistakes.
 - Optional relayer variants use EIP-712 signatures:
   - `publishAuthorized(...)`, `revokeAuthorized(...)` (owner-signed)
+  - `publishBatchAuthorized(...)`, `revokeBatchAuthorized(...)` (owner-signed batch ops)
+    - batch ops sign `itemsHash = keccak256(abi.encode(items))` where `items` is an array of structs (`PublishBatchItem[]` / `RevokeBatchItem[]`)
+  - `revokeByRootAuthorized(...)` (owner-signed convenience)
   - `transferOwnershipAuthorized(...)` (owner-signed), `acceptOwnershipAuthorized(...)` (pending-owner-signed)
   - Signers can be EOAs (ECDSA) or contracts implementing EIP-1271 (Safe / KernelAuthority).
 - The registry supports **revocation** per `(componentId, version)`:
