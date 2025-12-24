@@ -11,6 +11,7 @@ import {FoundryVm} from "./FoundryVm.sol";
 /// - `BLACKCAT_MANIFEST_STORE` (address)
 /// - `BLACKCAT_BLOB_PATH` (string path; e.g. `./dist/manifest.bin`)
 /// - `BLACKCAT_CHUNK_SIZE` (uint, optional; default 24000)
+/// - `BLACKCAT_CHUNKS_PER_TX` (uint, optional; default 1; when >1 uses `appendChunks(...)` to reduce tx count)
 /// - `BLACKCAT_BLOB_HASH` (bytes32, optional; if set, must match computed sha256(fileBytes))
 ///
 /// Output:
@@ -25,6 +26,8 @@ contract UploadManifestBlob {
 
         uint256 chunkSize = vm.envOr("BLACKCAT_CHUNK_SIZE", uint256(24000));
         require(chunkSize != 0, "UploadManifestBlob: chunkSize=0");
+        uint256 chunksPerTx = vm.envOr("BLACKCAT_CHUNKS_PER_TX", uint256(1));
+        require(chunksPerTx != 0, "UploadManifestBlob: chunksPerTx=0");
 
         bytes memory data = vm.readFileBinary(path);
         require(data.length != 0, "UploadManifestBlob: empty file");
@@ -47,22 +50,33 @@ contract UploadManifestBlob {
         require(uint256(chunksCount64) == chunksCount, "UploadManifestBlob: too many chunks");
 
         vm.startBroadcast(pk);
-        for (uint256 offset = 0; offset < total; offset += chunkSize) {
-            uint256 end = offset + chunkSize;
-            if (end > total) {
-                end = total;
+        for (uint256 startChunk = 0; startChunk < chunksCount; startChunk += chunksPerTx) {
+            uint256 endChunk = startChunk + chunksPerTx;
+            if (endChunk > chunksCount) {
+                endChunk = chunksCount;
             }
 
-            bytes memory chunk = new bytes(end - offset);
-            for (uint256 i = 0; i < chunk.length; i++) {
-                chunk[i] = data[offset + i];
+            uint256 batchLen = endChunk - startChunk;
+            bytes[] memory batch = new bytes[](batchLen);
+            for (uint256 i = 0; i < batchLen; i++) {
+                uint256 chunkIndex = startChunk + i;
+                uint256 offset = chunkIndex * chunkSize;
+                uint256 end = offset + chunkSize;
+                if (end > total) {
+                    end = total;
+                }
+
+                bytes memory chunk = new bytes(end - offset);
+                for (uint256 j = 0; j < chunk.length; j++) {
+                    chunk[j] = data[offset + j];
+                }
+                batch[i] = chunk;
             }
 
-            ManifestStore(store).appendChunk(blobHash, chunk);
+            ManifestStore(store).appendChunks(blobHash, batch);
         }
 
         ManifestStore(store).finalize(blobHash, chunksCount64, totalBytes64);
         vm.stopBroadcast();
     }
 }
-

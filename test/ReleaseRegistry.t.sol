@@ -179,4 +179,155 @@ contract ReleaseRegistryTest is TestBase {
         assertTrue(registry.isRevokedRoot(root), "root should be revoked");
         assertTrue(!registry.isTrustedRoot(root), "root should not be trusted");
     }
+
+    function test_publishAuthorized_accepts_eoa_owner_signature() public {
+        uint256 ownerPk = 0xA11CE;
+        address ownerAddr = vm.addr(ownerPk);
+        ReleaseRegistry registry = new ReleaseRegistry(ownerAddr);
+
+        bytes32 component = keccak256("blackcat-core");
+        uint64 version = 1;
+        bytes32 root = keccak256("root-auth");
+        bytes32 uriHash = keccak256("uri-auth");
+        bytes32 metaHash = keccak256("meta-auth");
+
+        uint256 deadline = block.timestamp + 3600;
+        bytes32 digest = registry.hashPublish(component, version, root, uriHash, metaHash, deadline);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPk, digest);
+        bytes memory sig = abi.encodePacked(r, s, v);
+
+        registry.publishAuthorized(component, version, root, uriHash, metaHash, deadline, sig);
+        assertTrue(registry.isTrustedRoot(root), "root should be trusted after publish");
+    }
+
+    function test_publishAuthorized_accepts_compact_eip2098_owner_signature() public {
+        uint256 ownerPk = 0xA11CE;
+        address ownerAddr = vm.addr(ownerPk);
+        ReleaseRegistry registry = new ReleaseRegistry(ownerAddr);
+
+        bytes32 component = keccak256("blackcat-core");
+        uint64 version = 1;
+        bytes32 root = keccak256("root-auth-2098");
+        bytes32 uriHash = keccak256("uri-auth-2098");
+        bytes32 metaHash = keccak256("meta-auth-2098");
+
+        uint256 deadline = block.timestamp + 3600;
+        bytes32 digest = registry.hashPublish(component, version, root, uriHash, metaHash, deadline);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPk, digest);
+        bytes memory sig = toEip2098Signature(v, r, s);
+
+        registry.publishAuthorized(component, version, root, uriHash, metaHash, deadline, sig);
+        assertTrue(registry.isTrustedRoot(root), "root should be trusted after publish");
+    }
+
+    function test_publishAuthorized_rejects_high_s_malleable_signature() public {
+        uint256 ownerPk = 0xA11CE;
+        address ownerAddr = vm.addr(ownerPk);
+        ReleaseRegistry registry = new ReleaseRegistry(ownerAddr);
+
+        bytes32 component = keccak256("blackcat-core");
+        uint64 version = 1;
+        bytes32 root = keccak256("root-auth-high-s");
+        bytes32 uriHash = keccak256("uri-auth-high-s");
+        bytes32 metaHash = keccak256("meta-auth-high-s");
+
+        uint256 deadline = block.timestamp + 3600;
+        bytes32 digest = registry.hashPublish(component, version, root, uriHash, metaHash, deadline);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPk, digest);
+        uint256 altS = SECP256K1N - uint256(s);
+        assertTrue(altS > SECP256K1N_HALF, "signature is not high-s");
+        bytes memory malleable = toMalleableHighSSignature(v, r, s);
+
+        vm.expectRevert("ReleaseRegistry: bad s");
+        registry.publishAuthorized(component, version, root, uriHash, metaHash, deadline, malleable);
+    }
+
+    function test_publishAuthorized_is_not_replayable() public {
+        uint256 ownerPk = 0xA11CE;
+        address ownerAddr = vm.addr(ownerPk);
+        ReleaseRegistry registry = new ReleaseRegistry(ownerAddr);
+
+        bytes32 component = keccak256("blackcat-core");
+        uint64 version = 1;
+        bytes32 root = keccak256("root-auth-replay");
+        bytes32 uriHash = keccak256("uri-auth-replay");
+        bytes32 metaHash = keccak256("meta-auth-replay");
+
+        uint256 deadline = block.timestamp + 3600;
+        bytes32 digest = registry.hashPublish(component, version, root, uriHash, metaHash, deadline);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPk, digest);
+        bytes memory sig = abi.encodePacked(r, s, v);
+
+        registry.publishAuthorized(component, version, root, uriHash, metaHash, deadline, sig);
+
+        vm.expectRevert("ReleaseRegistry: invalid owner signature");
+        registry.publishAuthorized(component, version, root, uriHash, metaHash, deadline, sig);
+    }
+
+    function test_revokeAuthorized_accepts_eoa_owner_signature() public {
+        uint256 ownerPk = 0xA11CE;
+        address ownerAddr = vm.addr(ownerPk);
+        ReleaseRegistry registry = new ReleaseRegistry(ownerAddr);
+
+        bytes32 component = keccak256("blackcat-core");
+        uint64 version = 1;
+        bytes32 root = keccak256("root-revoke-auth");
+
+        vm.prank(ownerAddr);
+        registry.publish(component, version, root, 0, 0);
+
+        uint256 deadline = block.timestamp + 3600;
+        bytes32 digest = registry.hashRevoke(component, version, root, deadline);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPk, digest);
+        bytes memory sig = abi.encodePacked(r, s, v);
+
+        registry.revokeAuthorized(component, version, root, deadline, sig);
+        assertTrue(registry.isRevokedRoot(root), "root should be revoked");
+    }
+
+    function test_transferOwnershipAuthorized_then_acceptOwnershipAuthorized() public {
+        uint256 ownerPk = 0xA11CE;
+        address ownerAddr = vm.addr(ownerPk);
+        uint256 newOwnerPk = 0xB0B;
+        address newOwnerAddr = vm.addr(newOwnerPk);
+
+        ReleaseRegistry registry = new ReleaseRegistry(ownerAddr);
+
+        uint256 deadline1 = block.timestamp + 3600;
+        bytes32 digest1 = registry.hashTransferOwnership(newOwnerAddr, deadline1);
+        (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(ownerPk, digest1);
+        bytes memory sig1 = abi.encodePacked(r1, s1, v1);
+        registry.transferOwnershipAuthorized(newOwnerAddr, deadline1, sig1);
+
+        uint256 deadline2 = block.timestamp + 7200;
+        bytes32 digest2 = registry.hashAcceptOwnership(newOwnerAddr, deadline2);
+        (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(newOwnerPk, digest2);
+        bytes memory sig2 = abi.encodePacked(r2, s2, v2);
+        registry.acceptOwnershipAuthorized(newOwnerAddr, deadline2, sig2);
+
+        assertEq(registry.owner(), newOwnerAddr, "owner not transferred");
+    }
+
+    function testFuzz_publish_then_getByRoot_roundtrip(
+        bytes32 componentId,
+        uint64 version,
+        bytes32 root,
+        bytes32 uriHash,
+        bytes32 metaHash
+    ) public {
+        vm.assume(componentId != bytes32(0));
+        vm.assume(version != 0);
+        vm.assume(root != bytes32(0));
+
+        ReleaseRegistry registry = new ReleaseRegistry(owner);
+        vm.prank(owner);
+        registry.publish(componentId, version, root, uriHash, metaHash);
+
+        (bytes32 c, uint64 v, bytes32 u, bytes32 m, bool revoked) = registry.getByRoot(root);
+        assertEq(c, componentId, "component mismatch");
+        assertEq(uint256(v), uint256(version), "version mismatch");
+        assertEq(u, uriHash, "uriHash mismatch");
+        assertEq(m, metaHash, "metaHash mismatch");
+        assertTrue(!revoked, "revoked should be false");
+    }
 }

@@ -80,6 +80,10 @@ Notes:
 - Releases are immutable per `(componentId, version)` (republishing is rejected; publish a new version instead).
 - Roots are unique across the registry (a `root` can be published only once) to avoid ambiguity.
 - Ownership uses a 2-step transfer (`transferOwnership` → `acceptOwnership`) to reduce operator mistakes.
+- Optional relayer variants use EIP-712 signatures:
+  - `publishAuthorized(...)`, `revokeAuthorized(...)` (owner-signed)
+  - `transferOwnershipAuthorized(...)` (owner-signed), `acceptOwnershipAuthorized(...)` (pending-owner-signed)
+  - Signers can be EOAs (ECDSA) or contracts implementing EIP-1271 (Safe / KernelAuthority).
 - The registry supports **revocation** per `(componentId, version)`:
   - revocation permanently marks the release as revoked and its `root` as untrusted,
   - `isTrustedRoot(root)` becomes false after revocation,
@@ -99,6 +103,7 @@ Core idea:
 Notes:
 - Writes are **owner-gated** to prevent third-party sabotage of official blobs.
 - The contract intentionally does not attempt to recompute `blobHash` on-chain (keeps gas bounded and code smaller).
+- Chunk uploads can be batched with `appendChunks(blobHash, chunks[])` to reduce tx count (bounded by per-tx gas).
 - `uriHash` in the trust kernel can point to a ManifestStore blob via a stable URI string, e.g.:
   - `evm-manifest://chain=4207;store=0x...;blob=0x...`
   - and then `uriHash = sha256(uri_string_bytes)`.

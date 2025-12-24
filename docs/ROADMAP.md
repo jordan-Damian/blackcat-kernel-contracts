@@ -24,6 +24,7 @@ This roadmap tracks the contract layer of the BlackCat “trust kernel” (Web3 
   - `InstanceFactory` cloning controllers and emitting setup receipts.
 - ✅ Optional `ManifestStore` for on-chain blob availability (paranoid “full detail” mode).
 - ✅ Add revocation/trust model to `ReleaseRegistry` (`revoke`, `isTrustedRoot`).
+- ✅ Add optional relayer ops to `ReleaseRegistry` + `ManifestStore` (EIP-712 / EIP-1271).
 - ✅ Add optional `ReleaseRegistry` enforcement to `InstanceController` (genesis + upgrades).
 - ✅ Add optional upgrade timelock (`minUpgradeDelaySec`) and reporter check-ins to `InstanceController`.
 - ✅ Add 2-step authority rotation and incident reporting to `InstanceController`.

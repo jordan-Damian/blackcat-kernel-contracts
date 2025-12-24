@@ -23,6 +23,8 @@ Foundry scripts (see `blackcat-kernel-contracts/script/`):
 ## Publish releases
 
 Use `PublishRelease.s.sol` to publish official releases into `ReleaseRegistry`.
+Relayer option (EIP-712):
+- `PublishReleaseAuthorized.s.sol` calls `publishAuthorized(...)` with an owner signature.
 
 Inputs you must compute off-chain:
 - `componentId` (`bytes32`) — stable component identifier
@@ -33,6 +35,7 @@ Inputs you must compute off-chain:
 
 Revocation:
 - Use `RevokeRelease.s.sol` to revoke a `(componentId, version)`.
+- Relayer option: `RevokeReleaseAuthorized.s.sol` calls `revokeAuthorized(...)` with an owner signature.
 
 ## Create instance (per install)
 
@@ -142,6 +145,7 @@ Other recommended settings:
 
 Upload a blob (expensive):
 - `UploadManifestBlob.s.sol` reads a file, uses `sha256(fileBytes)` as `blobHash`, stores chunks, and finalizes.
+- Use `BLACKCAT_CHUNKS_PER_TX` to batch multiple chunks per tx via `appendChunks(...)` (lower tx count, higher per-tx gas).
 
 Consumers must:
 - reassemble the blob and validate its `sha256` off-chain

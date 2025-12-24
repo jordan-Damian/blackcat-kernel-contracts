@@ -103,5 +103,52 @@ contract ManifestStoreTest is TestBase {
         vm.prank(other);
         store.appendChunk(keccak256("blob"), bytes("x"));
     }
-}
 
+    function test_appendChunks_appends_multiple() public {
+        ManifestStore store = new ManifestStore(owner);
+        bytes32 blob = keccak256("blob");
+
+        bytes[] memory batch = new bytes[](3);
+        batch[0] = bytes("a");
+        batch[1] = bytes("bb");
+        batch[2] = bytes("ccc");
+
+        vm.prank(owner);
+        uint64 startIndex = store.appendChunks(blob, batch);
+        assertEq(uint256(startIndex), 0, "startIndex mismatch");
+
+        (uint64 chunkCount, uint64 totalBytes, bool finalized) = store.getMeta(blob);
+        assertEq(uint256(chunkCount), 3, "chunkCount mismatch");
+        assertEq(uint256(totalBytes), 6, "totalBytes mismatch");
+        assertTrue(!finalized, "should not be finalized");
+
+        bytes memory c0 = store.getChunk(blob, 0);
+        bytes memory c2 = store.getChunk(blob, 2);
+        require(keccak256(c0) == keccak256(bytes("a")), "chunk0 mismatch");
+        require(keccak256(c2) == keccak256(bytes("ccc")), "chunk2 mismatch");
+    }
+
+    function test_transferOwnershipAuthorized_then_acceptOwnershipAuthorized() public {
+        uint256 ownerPk = 0xA11CE;
+        address ownerAddr = vm.addr(ownerPk);
+        uint256 newOwnerPk = 0xB0B;
+        address newOwnerAddr = vm.addr(newOwnerPk);
+
+        ManifestStore store = new ManifestStore(ownerAddr);
+
+        uint256 deadline1 = block.timestamp + 3600;
+        bytes32 digest1 = store.hashTransferOwnership(newOwnerAddr, deadline1);
+        (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(ownerPk, digest1);
+        bytes memory sig1 = abi.encodePacked(r1, s1, v1);
+        store.transferOwnershipAuthorized(newOwnerAddr, deadline1, sig1);
+
+        uint256 deadline2 = block.timestamp + 7200;
+        bytes32 digest2 = store.hashAcceptOwnership(newOwnerAddr, deadline2);
+        (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(newOwnerPk, digest2);
+        bytes memory sig2 = abi.encodePacked(r2, s2, v2);
+        store.acceptOwnershipAuthorized(newOwnerAddr, deadline2, sig2);
+
+        vm.prank(newOwnerAddr);
+        store.appendChunk(keccak256("blob"), bytes("x"));
+    }
+}
