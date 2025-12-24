@@ -44,6 +44,8 @@ This roadmap tracks the contract layer of the BlackCat “trust kernel” (Web3 
 - ✅ Upgrade flow: `propose → activate` with TTL and optional timelock.
 - ✅ Emergency controls: `pause/unpause` (plus runtime-enforced “unsafe” decisions off-chain).
 - ✅ Backward-compatible upgrades: optional compatibility overlap (rolling migrations).
+- ✅ Break-glass rollback to compatibility state (direct + relayer signature option).
+- ✅ Allow applying upgrades while paused (safer incident recovery).
 
 ## Stage 4 — Deployment + integration artifacts
 - ✅ Deterministic addresses for instances (CREATE2).
