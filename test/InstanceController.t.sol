@@ -745,6 +745,7 @@ contract InstanceControllerTest is TestBase {
         assertTrue((flags_ & 16) == 0, "autoPauseOnBadCheckInLocked should default to false");
         assertTrue((flags_ & 32) == 0, "compatibilityWindowLocked should default to false");
         assertTrue((flags_ & 64) == 0, "expectedComponentIdLocked should default to false");
+        assertTrue((flags_ & 128) == 0, "maxCheckInAgeLocked should default to false");
     }
 
     function test_lockReleaseRegistry_prevents_changes() public {
@@ -1070,6 +1071,36 @@ contract InstanceControllerTest is TestBase {
         vm.prank(reporter);
         controller.checkIn(keccak256("wrong-root"), genesisUriHash, genesisPolicyHash);
         assertTrue(!controller.lastCheckInOk(), "checkIn should be not ok");
+    }
+
+    function test_pauseIfStale_pauses_after_max_age() public {
+        address reporter = address(0x7777777777777777777777777777777777777777);
+
+        vm.prank(root);
+        controller.startReporterAuthorityTransfer(reporter);
+
+        vm.prank(reporter);
+        controller.acceptReporterAuthority();
+
+        vm.prank(root);
+        controller.setMaxCheckInAgeSec(10);
+
+        vm.prank(reporter);
+        controller.checkIn(genesisRoot, genesisUriHash, genesisPolicyHash);
+        uint64 last = controller.lastCheckInAt();
+        assertTrue(last != 0, "lastCheckInAt should be set");
+
+        vm.warp(uint256(last) + 11);
+
+        bool didPause = controller.pauseIfStale();
+        assertTrue(didPause, "pauseIfStale should pause");
+        assertTrue(controller.paused(), "controller should be paused");
+        assertEq(uint256(controller.incidentCount()), 1, "incidentCount mismatch");
+        assertEq(controller.lastIncidentBy(), address(this), "lastIncidentBy mismatch");
+
+        bool didPauseAgain = controller.pauseIfStale();
+        assertTrue(!didPauseAgain, "pauseIfStale should be no-op when already paused");
+        assertEq(uint256(controller.incidentCount()), 1, "incidentCount should not increment twice");
     }
 
     function test_checkIn_only_reporter() public {
@@ -1497,6 +1528,11 @@ contract InstanceControllerTest is TestBase {
         c.lockMinUpgradeDelay();
 
         vm.prank(root);
+        c.setMaxCheckInAgeSec(300);
+        vm.prank(root);
+        c.lockMaxCheckInAgeSec();
+
+        vm.prank(root);
         c.lockReleaseRegistry();
 
         (bool autoPause,,, uint64 minDelay,,,,,,, uint256 flags) = c.snapshotV2();
@@ -1510,6 +1546,7 @@ contract InstanceControllerTest is TestBase {
         assertTrue((flags & 16) != 0, "autoPauseOnBadCheckInLocked flag missing");
         assertTrue((flags & 32) != 0, "compatibilityWindowLocked flag missing");
         assertTrue((flags & 64) != 0, "expectedComponentIdLocked flag missing");
+        assertTrue((flags & 128) != 0, "maxCheckInAgeLocked flag missing");
     }
 
     function test_revoking_active_root_makes_state_unaccepted() public {
@@ -1590,6 +1627,90 @@ contract InstanceControllerTest is TestBase {
         assertTrue(
             !c.isAcceptedState(genesisRoot, genesisUriHash, genesisPolicyHash), "compat should reject revoked root"
         );
+    }
+
+    function test_pauseIfActiveRootUntrusted_pauses_after_revocation() public {
+        ReleaseRegistry registry = new ReleaseRegistry(address(this));
+        bytes32 component = keccak256("blackcat-core");
+        registry.publish(component, 1, genesisRoot, genesisUriHash, 0);
+
+        InstanceFactory strictFactory = new InstanceFactory(address(registry));
+        InstanceController c = InstanceController(
+            strictFactory.createInstance(root, upgrader, emergency, genesisRoot, genesisUriHash, genesisPolicyHash)
+        );
+
+        bool didPause = c.pauseIfActiveRootUntrusted();
+        assertTrue(!didPause, "should not pause when active root is trusted");
+        assertTrue(!c.paused(), "controller should remain unpaused");
+
+        registry.revoke(component, 1);
+
+        bool didPauseAfter = c.pauseIfActiveRootUntrusted();
+        assertTrue(didPauseAfter, "should pause after active root is revoked");
+        assertTrue(c.paused(), "controller should be paused");
+        assertEq(uint256(c.incidentCount()), 1, "incidentCount mismatch");
+    }
+
+    function test_finalizeProduction_sets_and_locks_knobs() public {
+        ReleaseRegistry registry = new ReleaseRegistry(address(this));
+        bytes32 component = keccak256("blackcat-core");
+        registry.publish(component, 1, genesisRoot, genesisUriHash, 0);
+
+        InstanceFactory strictFactory = new InstanceFactory(address(registry));
+        InstanceController c = InstanceController(
+            strictFactory.createInstance(root, upgrader, emergency, genesisRoot, genesisUriHash, genesisPolicyHash)
+        );
+
+        vm.prank(root);
+        c.finalizeProduction(address(registry), component, 60, 300, true, 3600, false);
+
+        assertTrue(c.releaseRegistryLocked(), "releaseRegistryLocked should be true");
+        assertTrue(c.expectedComponentIdLocked(), "expectedComponentIdLocked should be true");
+        assertTrue(c.minUpgradeDelayLocked(), "minUpgradeDelayLocked should be true");
+        assertTrue(c.maxCheckInAgeLocked(), "maxCheckInAgeLocked should be true");
+        assertTrue(c.autoPauseOnBadCheckInLocked(), "autoPauseOnBadCheckInLocked should be true");
+        assertTrue(c.compatibilityWindowLocked(), "compatibilityWindowLocked should be true");
+        assertTrue(c.emergencyCanUnpauseLocked(), "emergencyCanUnpauseLocked should be true");
+
+        assertEq(c.releaseRegistry(), address(registry), "releaseRegistry mismatch");
+        assertEq(c.expectedComponentId(), component, "expectedComponentId mismatch");
+        assertEq(uint256(c.minUpgradeDelaySec()), 60, "minUpgradeDelaySec mismatch");
+        assertEq(uint256(c.maxCheckInAgeSec()), 300, "maxCheckInAgeSec mismatch");
+        assertTrue(c.autoPauseOnBadCheckIn(), "autoPauseOnBadCheckIn should be true");
+        assertEq(uint256(c.compatibilityWindowSec()), 3600, "compatibilityWindowSec mismatch");
+        assertTrue(!c.emergencyCanUnpause(), "emergencyCanUnpause should be false");
+
+        vm.prank(root);
+        vm.expectRevert(abi.encodeWithSelector(InstanceController.ReleaseRegistryPointerLocked.selector));
+        c.setReleaseRegistry(address(0));
+
+        vm.prank(root);
+        vm.expectRevert(abi.encodeWithSelector(InstanceController.ExpectedComponentLocked.selector));
+        c.setExpectedComponentId(bytes32(0));
+
+        vm.prank(root);
+        vm.expectRevert(abi.encodeWithSelector(InstanceController.DelayLocked.selector));
+        c.setMinUpgradeDelaySec(0);
+
+        vm.prank(root);
+        vm.expectRevert(abi.encodeWithSelector(InstanceController.CheckInAgeLocked.selector));
+        c.setMaxCheckInAgeSec(0);
+
+        vm.prank(root);
+        vm.expectRevert(abi.encodeWithSelector(InstanceController.AutoPauseLocked.selector));
+        c.setAutoPauseOnBadCheckIn(false);
+
+        vm.prank(root);
+        vm.expectRevert(abi.encodeWithSelector(InstanceController.WindowLocked.selector));
+        c.setCompatibilityWindowSec(0);
+
+        vm.prank(root);
+        vm.expectRevert(abi.encodeWithSelector(InstanceController.EmergencyUnpausePolicyIsLocked.selector));
+        c.setEmergencyCanUnpause(true);
+
+        vm.prank(root);
+        vm.expectRevert(abi.encodeWithSelector(InstanceController.FinalizeMismatch.selector));
+        c.finalizeProduction(address(registry), component, 60, 301, true, 3600, false);
     }
 
     function test_initialize_rejects_untrusted_genesis_root_when_registry_is_set() public {

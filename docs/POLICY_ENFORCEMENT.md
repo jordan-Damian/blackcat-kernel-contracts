@@ -147,15 +147,18 @@ The PEP uses `blackcat-config` to decide:
 - how RPC quorum is configured,
 - whether writes must be blocked when chain is unreachable.
 
+## Contract-level guardrails (implemented)
+
+- Optional staleness safety: `maxCheckInAgeSec` + `pauseIfStale()` to enforce monitoring freshness.
+- Optional registry safety: `pauseIfActiveRootUntrusted()` to auto-pause if the current active root becomes revoked/untrusted in `ReleaseRegistry`.
+
 ## Suggested next contract-level extensions (future work)
 
 These are intentionally *not required for v1 deployment*, but they match the “maximum security tiers” direction:
 
 1. **Policy availability pinning**
    - store policy bytes in `ManifestStore` and reference them by `policyHash`.
-2. **Staleness-based auto-pause**
-   - optional `maxCheckInAgeSec` and `pauseIfStale()` to enforce monitoring freshness.
-3. **Audit root attestation**
+2. **Audit root attestation**
    - standardize an attestation key (e.g., `keccak256("audit.merkle_root")`) for periodic audit commits.
 
 ## Production posture (summary)
@@ -169,4 +172,3 @@ Production should be strict:
 Development can be more permissive:
 - warn + record incidents
 - allow local iteration without hard shutdown
-

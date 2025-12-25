@@ -51,6 +51,8 @@ This roadmap tracks the contract layer of the BlackCat “trust kernel” (Web3 
 - ✅ Backward-compatible upgrades: optional compatibility overlap (rolling migrations).
 - ✅ Break-glass rollback to compatibility state (direct + relayer signature option).
 - ✅ Allow applying upgrades while paused (safer incident recovery).
+- ✅ Permissionless guardrails: `pauseIfStale()` and `pauseIfActiveRootUntrusted()` for bot-driven auto-pause.
+- ✅ Production hardening: `finalizeProduction(...)` helper to set + lock key knobs in one tx.
 - ✅ Document canonical EIP-712 type strings for off-chain tooling (no on-chain `hash*` helpers to stay under EIP-170).
 
 ## Stage 4 — Deployment + integration artifacts

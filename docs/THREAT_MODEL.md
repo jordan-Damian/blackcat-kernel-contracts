@@ -101,10 +101,12 @@ For tier (2) and (3), you need *hardening tiers* (HSM/KMS, process isolation, mu
 | Filesystem tamper (code/config) | attacker modifies files or redirects config | runtime verifies on-chain state + pinned config hash via attestations + fail closed |
 | “Redirect runtime” attack | attacker changes chain/RPC/controller address | file permission checks + on-chain pinned config hash + locking |
 | Malicious release injection | attacker tries to upgrade to untrusted root | `ReleaseRegistry.isTrustedRoot` checks (if enabled) + revocation |
+| Active root revoked after deployment | a previously accepted root becomes untrusted | runtime rejects revoked roots + `pauseIfActiveRootUntrusted()` (permissionless bot) |
 | Relayer compromise | attacker can submit tx but not sign | relayer paths require valid EIP-712 signature (EOA/EIP-1271) |
 | Signature replay | reuse a signature on another chain/contract/time | EIP-712 domain separator + nonce + deadline |
 | RPC lies / stale reads | runtime sees inconsistent state | multi-RPC quorum + max-stale + fail closed |
 | Chain / RPC outage | cannot read chain state reliably | buffer/outbox + deny security-critical writes + incident escalation thresholds |
+| Monitoring silence / stale check-ins | health signal becomes stale or missing | `maxCheckInAgeSec` + `pauseIfStale()` (permissionless bot) + strict prod posture |
 | Single key compromise | attacker gets one key | Safe/KernelAuthority threshold; keep emergency keys offline |
 
 ## “Localhost-only DB” helps, but doesn’t solve RCE

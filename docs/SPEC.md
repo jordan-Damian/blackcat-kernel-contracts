@@ -163,7 +163,7 @@ Compatibility overlap (optional):
 - During the overlap window, `isAcceptedState(...)` returns true for either the current active state or the compatibility state (rolling upgrades).
 - If `releaseRegistry` is set, both active and compatibility roots must still be trusted in the registry to be accepted.
 - Control plane:
-  - `setCompatibilityWindowSec(sec)` (root authority; bounded by `MAX_COMPATIBILITY_WINDOW_SEC`)
+  - `setCompatibilityWindowSec(sec)` (root authority; bounded by `30 days`)
   - `clearCompatibilityState()` (root authority)
   - `rollbackToCompatibilityState()` (root authority; break-glass rollback if still within overlap)
   - `rollbackToCompatibilityStateAuthorized(...)` (optional; relayer submits a `rootAuthority` EIP-712 signature; anti-replay via `rollbackNonce`)
@@ -256,10 +256,19 @@ Monitoring / check-ins (v1):
 - Optional: `checkInAuthorized(...)` allows a relayer to submit a `reporterAuthority` EIP-712 signature (EOA or EIP-1271).
 - The controller records `(lastCheckInAt, lastCheckInOk)` for off-chain health evaluation.
 - If `autoPauseOnBadCheckIn` is enabled, a bad check-in pauses the controller and records an incident.
+- Optional: staleness-based safety
+  - `setMaxCheckInAgeSec(sec)` (root authority; `0` disables; bounded by `30 days`)
+  - `lockMaxCheckInAgeSec()` (root authority; requires `maxCheckInAgeSec != 0`)
+  - `pauseIfStale()` (permissionless) pauses + records an incident if the last check-in is older than `maxCheckInAgeSec`.
 
 Incident reporting (v1):
 - `reportIncident(incidentHash)` (root/emergency/reporter)
 - Optional: `reportIncidentAuthorized(...)` allows a relayer to submit an EIP-712 signature from one of `{rootAuthority, emergencyAuthority, reporterAuthority}`.
+- Optional: permissionless safety
+  - `pauseIfActiveRootUntrusted()` (permissionless) pauses + records an incident if `activeRoot` is no longer trusted by `ReleaseRegistry` (when configured).
+
+Production hardening (v1):
+- `finalizeProduction(...)` is a one-shot helper for root authority that sets + locks multiple “knobs” (registry pointer, expected component id, upgrade delay, check-in staleness, auto-pause, compatibility window, emergency unpause policy).
 
 Runtime optimization (v1):
 - `snapshot()` aggregates the commonly-read state (paused + active hashes + pending proposal) into one `eth_call`.
@@ -272,6 +281,7 @@ Runtime optimization (v1):
     - `0x10` → `autoPauseOnBadCheckInLocked`
     - `0x20` → `compatibilityWindowLocked`
     - `0x40` → `expectedComponentIdLocked`
+    - `0x80` → `maxCheckInAgeLocked`
 
 ### `InstanceFactory`
 

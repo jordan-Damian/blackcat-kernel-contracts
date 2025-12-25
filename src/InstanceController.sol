@@ -53,14 +53,18 @@ contract InstanceController {
     bytes32 private constant ROLE_EMERGENCY_AUTHORITY = keccak256("emergency_authority");
     bytes32 private constant ROLE_REPORTER_AUTHORITY = keccak256("reporter_authority");
 
+    bytes32 private constant INCIDENT_STALE_CHECKIN = keccak256("stale_checkin");
+    bytes32 private constant INCIDENT_ACTIVE_ROOT_UNTRUSTED = keccak256("active_root_untrusted");
+
     bytes4 private constant EIP1271_MAGICVALUE = 0x1626ba7e;
     uint256 private constant SECP256K1N_HALF = 0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0;
     uint256 private constant EIP2098_S_MASK = 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
 
-    uint8 public constant VERSION = 1;
+    uint8 private constant VERSION = 1;
     uint64 public constant MAX_UPGRADE_DELAY_SEC = 30 days;
     uint64 public constant MAX_UPGRADE_TTL_SEC = 30 days;
-    uint64 public constant MAX_COMPATIBILITY_WINDOW_SEC = 30 days;
+    uint64 private constant MAX_COMPATIBILITY_WINDOW_SEC = 30 days;
+    uint64 private constant MAX_CHECKIN_AGE_SEC = 30 days;
 
     error NotRootAuthority();
     error NotUpgradeAuthority();
@@ -128,6 +132,10 @@ contract InstanceController {
     error NoAttestation();
 
     error AutoPauseLocked();
+    error CheckInAgeLocked();
+    error CheckInAgeTooLarge();
+    error CheckInAgeZero();
+    error FinalizeMismatch();
     error ReporterNotSet();
     error InvalidReporterSignature();
 
@@ -208,6 +216,8 @@ contract InstanceController {
     uint64 public lastUpgradeAt;
     uint64 public minUpgradeDelaySec;
     bool public minUpgradeDelayLocked;
+    uint64 public maxCheckInAgeSec;
+    bool public maxCheckInAgeLocked;
     uint64 public lastCheckInAt;
     bool public lastCheckInOk;
 
@@ -255,6 +265,8 @@ contract InstanceController {
     event ReporterAuthorityChanged(address indexed previousValue, address indexed newValue);
     event MinUpgradeDelayChanged(uint64 previousValue, uint64 newValue);
     event MinUpgradeDelayLocked(uint64 value);
+    event MaxCheckInAgeChanged(uint64 previousValue, uint64 newValue);
+    event MaxCheckInAgeLocked(uint64 value);
     event CompatibilityWindowChanged(uint64 previousValue, uint64 newValue);
     event CompatibilityWindowLocked(uint64 value);
     event CompatibilityStateSet(bytes32 root, bytes32 uriHash, bytes32 policyHash, uint64 until);
@@ -868,6 +880,172 @@ contract InstanceController {
         emit AutoPauseOnBadCheckInLocked(autoPauseOnBadCheckIn);
     }
 
+    function setMaxCheckInAgeSec(uint64 newValue) external onlyRootAuthority {
+        if (maxCheckInAgeLocked) revert CheckInAgeLocked();
+        if (newValue > MAX_CHECKIN_AGE_SEC) revert CheckInAgeTooLarge();
+        uint64 previousValue = maxCheckInAgeSec;
+        maxCheckInAgeSec = newValue;
+        emit MaxCheckInAgeChanged(previousValue, newValue);
+    }
+
+    function lockMaxCheckInAgeSec() external onlyRootAuthority {
+        if (maxCheckInAgeLocked) revert CheckInAgeLocked();
+        if (maxCheckInAgeSec == 0) revert CheckInAgeZero();
+        maxCheckInAgeLocked = true;
+        emit MaxCheckInAgeLocked(maxCheckInAgeSec);
+    }
+
+    /// @notice One-shot helper to lock down the controller for production.
+    /// @dev Sets and locks multiple “knobs” in a single transaction (if not already locked).
+    function finalizeProduction(
+        address releaseRegistry_,
+        bytes32 expectedComponentId_,
+        uint64 minUpgradeDelaySec_,
+        uint64 maxCheckInAgeSec_,
+        bool autoPauseOnBadCheckIn_,
+        uint64 compatibilityWindowSec_,
+        bool emergencyCanUnpause_
+    ) external onlyRootAuthority {
+        if (releaseRegistryLocked && releaseRegistry != releaseRegistry_) revert FinalizeMismatch();
+        if (expectedComponentIdLocked && expectedComponentId != expectedComponentId_) revert FinalizeMismatch();
+        if (minUpgradeDelayLocked && minUpgradeDelaySec != minUpgradeDelaySec_) revert FinalizeMismatch();
+        if (maxCheckInAgeLocked && maxCheckInAgeSec != maxCheckInAgeSec_) revert FinalizeMismatch();
+        if (autoPauseOnBadCheckInLocked && autoPauseOnBadCheckIn != autoPauseOnBadCheckIn_) revert FinalizeMismatch();
+        if (compatibilityWindowLocked && compatibilityWindowSec != compatibilityWindowSec_) revert FinalizeMismatch();
+        if (emergencyCanUnpauseLocked && emergencyCanUnpause != emergencyCanUnpause_) revert FinalizeMismatch();
+
+        if (!releaseRegistryLocked && releaseRegistry != releaseRegistry_) {
+            if (releaseRegistry_ == address(0)) {
+                if (expectedComponentId != bytes32(0)) revert ExpectedComponentSet();
+            } else {
+                if (releaseRegistry_.code.length == 0) revert RegistryNotContract();
+                if (!IReleaseRegistry(releaseRegistry_).isTrustedRoot(activeRoot)) revert ActiveRootNotTrusted();
+
+                UpgradeProposal memory p = pendingUpgrade;
+                if (p.root != bytes32(0)) {
+                    if (!IReleaseRegistry(releaseRegistry_).isTrustedRoot(p.root)) revert PendingRootNotTrusted();
+                }
+
+                CompatibilityState memory compat = compatibilityState;
+                if (compat.root != bytes32(0) && block.timestamp <= compat.until) {
+                    if (!IReleaseRegistry(releaseRegistry_).isTrustedRoot(compat.root)) revert CompatRootNotTrusted();
+                }
+
+                bytes32 expected = expectedComponentId;
+                if (expected != bytes32(0)) {
+                    _requireRootComponent(releaseRegistry_, activeRoot, expected);
+                    if (p.root != bytes32(0)) {
+                        _requireRootComponent(releaseRegistry_, p.root, expected);
+                    }
+                    if (compat.root != bytes32(0) && block.timestamp <= compat.until) {
+                        _requireRootComponent(releaseRegistry_, compat.root, expected);
+                    }
+                }
+            }
+
+            address previousValue = releaseRegistry;
+            releaseRegistry = releaseRegistry_;
+            emit ReleaseRegistryChanged(previousValue, releaseRegistry_);
+        }
+
+        if (!expectedComponentIdLocked && expectedComponentId != expectedComponentId_) {
+            if (expectedComponentId_ != bytes32(0)) {
+                address registry = releaseRegistry;
+                if (registry == address(0)) revert NoReleaseRegistry();
+
+                _requireRootComponent(registry, activeRoot, expectedComponentId_);
+
+                UpgradeProposal memory p = pendingUpgrade;
+                if (p.root != bytes32(0)) {
+                    _requireRootComponent(registry, p.root, expectedComponentId_);
+                }
+
+                CompatibilityState memory compat = compatibilityState;
+                if (compat.root != bytes32(0) && block.timestamp <= compat.until) {
+                    _requireRootComponent(registry, compat.root, expectedComponentId_);
+                }
+            }
+
+            bytes32 previousValue = expectedComponentId;
+            expectedComponentId = expectedComponentId_;
+            emit ExpectedComponentIdChanged(previousValue, expectedComponentId_);
+        }
+
+        if (!minUpgradeDelayLocked && minUpgradeDelaySec != minUpgradeDelaySec_) {
+            if (minUpgradeDelaySec_ > MAX_UPGRADE_DELAY_SEC) revert DelayTooLarge();
+            uint64 previousValue = minUpgradeDelaySec;
+            minUpgradeDelaySec = minUpgradeDelaySec_;
+            emit MinUpgradeDelayChanged(previousValue, minUpgradeDelaySec_);
+        }
+
+        if (!maxCheckInAgeLocked && maxCheckInAgeSec != maxCheckInAgeSec_) {
+            if (maxCheckInAgeSec_ > MAX_CHECKIN_AGE_SEC) revert CheckInAgeTooLarge();
+            uint64 previousValue = maxCheckInAgeSec;
+            maxCheckInAgeSec = maxCheckInAgeSec_;
+            emit MaxCheckInAgeChanged(previousValue, maxCheckInAgeSec_);
+        }
+
+        if (!autoPauseOnBadCheckInLocked && autoPauseOnBadCheckIn != autoPauseOnBadCheckIn_) {
+            bool previousValue = autoPauseOnBadCheckIn;
+            autoPauseOnBadCheckIn = autoPauseOnBadCheckIn_;
+            emit AutoPauseOnBadCheckInChanged(previousValue, autoPauseOnBadCheckIn_);
+        }
+
+        if (!compatibilityWindowLocked && compatibilityWindowSec != compatibilityWindowSec_) {
+            if (compatibilityWindowSec_ > MAX_COMPATIBILITY_WINDOW_SEC) revert WindowTooLarge();
+            uint64 previousValue = compatibilityWindowSec;
+            compatibilityWindowSec = compatibilityWindowSec_;
+            emit CompatibilityWindowChanged(previousValue, compatibilityWindowSec_);
+        }
+
+        if (!emergencyCanUnpauseLocked && emergencyCanUnpause != emergencyCanUnpause_) {
+            bool previousValue = emergencyCanUnpause;
+            emergencyCanUnpause = emergencyCanUnpause_;
+            emit EmergencyUnpausePolicyChanged(previousValue, emergencyCanUnpause_);
+        }
+
+        if (!releaseRegistryLocked) {
+            address registry = releaseRegistry;
+            if (registry == address(0)) revert NoReleaseRegistry();
+            releaseRegistryLocked = true;
+            emit ReleaseRegistryLocked(registry);
+        }
+
+        if (!expectedComponentIdLocked) {
+            bytes32 componentId = expectedComponentId;
+            if (componentId == bytes32(0)) revert ZeroComponentId();
+            expectedComponentIdLocked = true;
+            emit ExpectedComponentIdLocked(componentId);
+        }
+
+        if (!minUpgradeDelayLocked) {
+            if (minUpgradeDelaySec == 0) revert DelayZero();
+            minUpgradeDelayLocked = true;
+            emit MinUpgradeDelayLocked(minUpgradeDelaySec);
+        }
+
+        if (!maxCheckInAgeLocked) {
+            if (maxCheckInAgeSec == 0) revert CheckInAgeZero();
+            maxCheckInAgeLocked = true;
+            emit MaxCheckInAgeLocked(maxCheckInAgeSec);
+        }
+
+        if (!autoPauseOnBadCheckInLocked) {
+            autoPauseOnBadCheckInLocked = true;
+            emit AutoPauseOnBadCheckInLocked(autoPauseOnBadCheckIn);
+        }
+
+        if (!compatibilityWindowLocked) {
+            compatibilityWindowLocked = true;
+            emit CompatibilityWindowLocked(compatibilityWindowSec);
+        }
+
+        if (!emergencyCanUnpauseLocked) {
+            emergencyCanUnpauseLocked = true;
+            emit EmergencyUnpausePolicyLocked(emergencyCanUnpause);
+        }
+    }
+
     function isAcceptedState(bytes32 observedRoot, bytes32 observedUriHash, bytes32 observedPolicyHash)
         public
         view
@@ -919,6 +1097,52 @@ contract InstanceController {
 
         reporterNonce += 1;
         _checkIn(reporter, observedRoot, observedUriHash, observedPolicyHash);
+    }
+
+    /// @notice Permissionless safety: pauses the controller if check-ins are stale beyond `maxCheckInAgeSec`.
+    /// @dev Intended to be called by monitoring bots; no-op if disabled (`maxCheckInAgeSec==0`) or already paused.
+    function pauseIfStale() external returns (bool) {
+        if (paused) {
+            return false;
+        }
+
+        uint64 maxAgeSec = maxCheckInAgeSec;
+        if (maxAgeSec == 0) {
+            return false;
+        }
+
+        uint64 base = lastCheckInAt;
+        if (base == 0) {
+            base = genesisAt;
+        }
+
+        if (block.timestamp <= uint256(base) + uint256(maxAgeSec)) {
+            return false;
+        }
+
+        _recordIncident(msg.sender, INCIDENT_STALE_CHECKIN);
+        _setPaused(msg.sender, true);
+        return true;
+    }
+
+    /// @notice Permissionless safety: pauses the controller if `activeRoot` is no longer trusted by `ReleaseRegistry`.
+    /// @dev No-op if `releaseRegistry==0` or already paused. Treats registry call failure as untrusted.
+    function pauseIfActiveRootUntrusted() external returns (bool) {
+        if (paused) {
+            return false;
+        }
+
+        if (releaseRegistry == address(0)) {
+            return false;
+        }
+
+        if (_isRootTrusted(activeRoot)) {
+            return false;
+        }
+
+        _recordIncident(msg.sender, INCIDENT_ACTIVE_ROOT_UNTRUSTED);
+        _setPaused(msg.sender, true);
+        return true;
     }
 
     function reportIncident(bytes32 incidentHash) external {
@@ -1401,6 +1625,9 @@ contract InstanceController {
         }
         if (expectedComponentIdLocked) {
             flags |= 64;
+        }
+        if (maxCheckInAgeLocked) {
+            flags |= 128;
         }
 
         return (

@@ -333,6 +333,55 @@ Expected:
 Forbidden:
 - Allowing an untrusted process to act as `reporterAuthority`.
 
+### Permissionless auto-pause helpers (bots)
+
+These helpers are intended for monitoring/guard bots. They are permissionless by design and are safe because they can only reduce availability (pause), not grant new authority.
+
+#### `pauseIfStale()` (check-in freshness)
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant Bot as Monitoring bot
+  participant IC as InstanceController
+
+  Note over IC: Requires maxCheckInAgeSec != 0 (ideally locked in prod)
+
+  Bot->>IC: pauseIfStale()
+  alt within max age OR already paused
+    IC-->>Bot: returns false (no-op)
+  else stale beyond maxCheckInAgeSec
+    IC->>IC: IncidentReported("stale_checkin", ...)
+    IC->>IC: Paused
+    IC-->>Bot: returns true
+  end
+```
+
+#### `pauseIfActiveRootUntrusted()` (registry revocation)
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant Bot as Monitoring bot
+  participant IC as InstanceController
+  participant RR as ReleaseRegistry
+
+  Bot->>IC: pauseIfActiveRootUntrusted()
+  alt releaseRegistry not configured OR already paused
+    IC-->>Bot: returns false (no-op)
+  else activeRoot still trusted
+    IC->>RR: isTrustedRoot(activeRoot)
+    RR-->>IC: true
+    IC-->>Bot: returns false (no-op)
+  else activeRoot untrusted/revoked
+    IC->>RR: isTrustedRoot(activeRoot)
+    RR-->>IC: false
+    IC->>IC: IncidentReported("active_root_untrusted", ...)
+    IC->>IC: Paused
+    IC-->>Bot: returns true
+  end
+```
+
 ## Flow: Authority Rotation (2-step, optional relayer)
 
 ```mermaid
