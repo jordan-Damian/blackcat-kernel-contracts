@@ -2,6 +2,8 @@
 
 # BlackCat Kernel Contracts
 
+[![CI](https://github.com/blackcatacademy/blackcat-kernel-contracts/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/blackcatacademy/blackcat-kernel-contracts/actions/workflows/ci.yml?query=branch%3Amain)
+
 EVM smart contracts that act as the **trust authority** for BlackCat installations.
 
 The core idea:

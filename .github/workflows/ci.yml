@@ -20,5 +20,8 @@ jobs:
       - name: Format (check)
         run: forge fmt --check
 
-      - name: Test
-        run: forge test
+      - name: Test (via-ir)
+        run: forge test --via-ir
+
+      - name: Bytecode size (EIP-170)
+        run: forge build --via-ir --skip test --skip script --sizes
