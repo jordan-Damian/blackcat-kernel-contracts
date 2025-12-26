@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2025 Black Cat Academy s. r. o.
+ * SPDX-License-Identifier: LicenseRef-BlackCat-Proprietary-1.0
+ */
+
 pragma solidity ^0.8.24;
 
 interface IReleaseRegistry {
@@ -61,8 +66,8 @@ contract InstanceController {
     uint256 private constant EIP2098_S_MASK = 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
 
     uint8 private constant VERSION = 1;
-    uint64 public constant MAX_UPGRADE_DELAY_SEC = 30 days;
-    uint64 public constant MAX_UPGRADE_TTL_SEC = 30 days;
+    uint64 private constant MAX_UPGRADE_DELAY_SEC = 30 days;
+    uint64 private constant MAX_UPGRADE_TTL_SEC = 30 days;
     uint64 private constant MAX_COMPATIBILITY_WINDOW_SEC = 30 days;
     uint64 private constant MAX_CHECKIN_AGE_SEC = 30 days;
 

@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2025 Black Cat Academy s. r. o.
+ * SPDX-License-Identifier: LicenseRef-BlackCat-Proprietary-1.0
+ */
+
 pragma solidity ^0.8.24;
 
 import {TestBase} from "./TestBase.sol";
@@ -1040,7 +1045,7 @@ contract InstanceControllerTest is TestBase {
     }
 
     function test_setMinUpgradeDelaySec_rejects_too_large() public {
-        uint64 tooLarge = controller.MAX_UPGRADE_DELAY_SEC() + 1;
+        uint64 tooLarge = uint64(uint256(30 days) + 1);
 
         vm.prank(root);
         vm.expectRevert(abi.encodeWithSelector(InstanceController.DelayTooLarge.selector));
@@ -1048,7 +1053,7 @@ contract InstanceControllerTest is TestBase {
     }
 
     function test_proposeUpgrade_rejects_ttl_too_large() public {
-        uint64 tooLarge = controller.MAX_UPGRADE_TTL_SEC() + 1;
+        uint64 tooLarge = uint64(uint256(30 days) + 1);
 
         vm.prank(upgrader);
         vm.expectRevert(abi.encodeWithSelector(InstanceController.TtlTooLarge.selector));
