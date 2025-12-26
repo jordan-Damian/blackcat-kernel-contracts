@@ -3,10 +3,10 @@
 This is the working specification for the BlackCat **Trust Kernel**.
 
 Related:
-- Diagrams: `blackcat-kernel-contracts/docs/SECURITY_FLOWS.md`
-- Threat model: `blackcat-kernel-contracts/docs/THREAT_MODEL.md`
-- Policy enforcement: `blackcat-kernel-contracts/docs/POLICY_ENFORCEMENT.md`
-- Audit checklist: `blackcat-kernel-contracts/docs/AUDIT_CHECKLIST.md`
+- Diagrams: [SECURITY_FLOWS](SECURITY_FLOWS.md)
+- Threat model: [THREAT_MODEL](THREAT_MODEL.md)
+- Policy enforcement: [POLICY_ENFORCEMENT](POLICY_ENFORCEMENT.md)
+- Audit checklist: [AUDIT_CHECKLIST](AUDIT_CHECKLIST.md)
 
 ## Goal
 
@@ -34,7 +34,7 @@ Production must use multi-RPC quorum (recommended: `2/3`, minimum: `2/2`).
 Authorities are normally **external multisig wallets** (e.g. Safe) to avoid custom multisig logic in kernel contracts.
 
 Optionally (advanced), BlackCat can use an on-chain EIP-712 threshold signer authority (`KernelAuthority`) to enforce multi-device signing without depending on Safe tooling.
-See `blackcat-kernel-contracts/docs/AUTHORITY_MODES.md`.
+See [AUTHORITY_MODES](AUTHORITY_MODES.md).
 
 Recommended split:
 - `root_authority` (highest): policy changes, authority rotation, thresholds.

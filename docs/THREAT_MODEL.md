@@ -7,10 +7,10 @@ Important:
 - The Trust Kernel is a *system*: on-chain contracts + off-chain runtime enforcement (`blackcat-core`) + secure config handling (`blackcat-config`).
 
 Related:
-- Flows/diagrams: `blackcat-kernel-contracts/docs/SECURITY_FLOWS.md`
-- Spec: `blackcat-kernel-contracts/docs/SPEC.md`
-- Policy enforcement: `blackcat-kernel-contracts/docs/POLICY_ENFORCEMENT.md`
-- Audit checklist: `blackcat-kernel-contracts/docs/AUDIT_CHECKLIST.md`
+- Flows/diagrams: [SECURITY_FLOWS](SECURITY_FLOWS.md)
+- Spec: [SPEC](SPEC.md)
+- Policy enforcement: [POLICY_ENFORCEMENT](POLICY_ENFORCEMENT.md)
+- Audit checklist: [AUDIT_CHECKLIST](AUDIT_CHECKLIST.md)
 
 ## Trust boundaries (high level)
 
@@ -121,7 +121,7 @@ So the real security boundary must be:
 - secrets and privileged writes are only possible through the policy enforcement layer (“back controller”),
 - and that layer fails closed when trust checks fail.
 
-See: `blackcat-kernel-contracts/docs/POLICY_ENFORCEMENT.md`.
+See: [POLICY_ENFORCEMENT](POLICY_ENFORCEMENT.md).
 
 ## Attack narrative: filesystem tamper → detection → auto-pause
 

@@ -11,7 +11,7 @@ Important:
 
 Build notes:
 - `InstanceController` is near the EIP-170 runtime limit, so this repo compiles “size-first”.
-- See: `blackcat-kernel-contracts/docs/BUILD_AND_VERIFICATION.md`
+- See: [BUILD_AND_VERIFICATION](BUILD_AND_VERIFICATION.md)
 
 Recommended baseline deployment:
 - `ReleaseRegistry` (global, owned by Safe)
@@ -190,4 +190,4 @@ Consumers must:
 ## Dry run (Edgen)
 
 Step-by-step dry run against Edgen Chain:
-- `blackcat-kernel-contracts/docs/DRY_RUN_EDGEN.md`
+- [DRY_RUN_EDGEN](DRY_RUN_EDGEN.md)

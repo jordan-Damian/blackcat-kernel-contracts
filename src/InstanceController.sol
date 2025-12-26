@@ -299,11 +299,6 @@ contract InstanceController {
         _;
     }
 
-    modifier onlyEmergencyAuthority() {
-        _requireEmergencyAuthority();
-        _;
-    }
-
     modifier onlyEmergencyOrRootAuthority() {
         _requireEmergencyOrRootAuthority();
         _;
@@ -325,10 +320,6 @@ contract InstanceController {
 
     function _requireUpgradeAuthority() private view {
         if (msg.sender != upgradeAuthority) revert NotUpgradeAuthority();
-    }
-
-    function _requireEmergencyAuthority() private view {
-        if (msg.sender != emergencyAuthority) revert NotEmergencyAuthority();
     }
 
     function _requireEmergencyOrRootAuthority() private view {
@@ -758,6 +749,7 @@ contract InstanceController {
     /// @dev This bypasses timelock/TTL because it rolls back to the last known-good state captured by the controller.
     function rollbackToCompatibilityState() external onlyRootAuthority {
         CompatibilityState memory compat = compatibilityState;
+        // slither-disable-next-line incorrect-equality
         if (compat.root == bytes32(0)) revert NoCompatibilityState();
         if (block.timestamp > compat.until) revert CompatibilityExpired();
         _rollbackToCompatibility(compat);
@@ -767,6 +759,7 @@ contract InstanceController {
         if (block.timestamp > deadline) revert Expired();
 
         CompatibilityState memory compat = compatibilityState;
+        // slither-disable-next-line incorrect-equality
         if (compat.root == bytes32(0)) revert NoCompatibilityState();
         if (block.timestamp > compat.until) revert CompatibilityExpired();
 
@@ -1068,6 +1061,7 @@ contract InstanceController {
         view
         returns (bool)
     {
+        // slither-disable-next-line incorrect-equality
         if (observedRoot == activeRoot && observedUriHash == activeUriHash && observedPolicyHash == activePolicyHash) {
             return _isRootTrusted(observedRoot);
         }
@@ -1075,6 +1069,7 @@ contract InstanceController {
         CompatibilityState memory compat = compatibilityState;
         if (compat.root != bytes32(0) && block.timestamp <= compat.until) {
             if (
+                // slither-disable-next-line incorrect-equality
                 observedRoot == compat.root && observedUriHash == compat.uriHash
                     && observedPolicyHash == compat.policyHash
             ) {
@@ -1133,6 +1128,7 @@ contract InstanceController {
         }
 
         uint64 base = lastCheckInAt;
+        // slither-disable-next-line incorrect-equality
         if (base == 0) {
             base = genesisAt;
         }
@@ -1300,6 +1296,7 @@ contract InstanceController {
         if (block.timestamp > deadline) revert Expired();
 
         UpgradeProposal memory upgrade = pendingUpgrade;
+        // slither-disable-next-line incorrect-equality
         if (upgrade.root == bytes32(0)) revert NoPendingUpgrade();
         if (upgrade.root != root || upgrade.uriHash != uriHash || upgrade.policyHash != policyHash) {
             revert PendingMismatch();
@@ -1350,6 +1347,7 @@ contract InstanceController {
         if (block.timestamp > deadline) revert Expired();
 
         UpgradeProposal memory upgrade = pendingUpgrade;
+        // slither-disable-next-line incorrect-equality
         if (upgrade.root == bytes32(0)) revert NoPendingUpgrade();
         if (upgrade.root != root || upgrade.uriHash != uriHash || upgrade.policyHash != policyHash) {
             revert PendingMismatch();
@@ -1376,6 +1374,7 @@ contract InstanceController {
     }
 
     function _activateUpgrade(UpgradeProposal memory upgrade) private {
+        // slither-disable-next-line incorrect-equality
         if (upgrade.root == bytes32(0)) revert NoPendingUpgrade();
         uint256 createdAt = uint256(upgrade.createdAt);
         uint256 timelockUntil;
@@ -1453,8 +1452,10 @@ contract InstanceController {
 
         (bool ok, bytes memory ret) = signer.staticcall(abi.encodeWithSelector(EIP1271_MAGICVALUE, digest, signature));
         // Casting to `bytes4` is safe because we check `ret.length >= 4` first.
+        // slither-disable-start incorrect-equality
         // forge-lint: disable-next-line(unsafe-typecast)
         return ok && ret.length >= 4 && bytes4(ret) == EIP1271_MAGICVALUE;
+        // slither-disable-end incorrect-equality
     }
 
     function _recover(bytes32 digest, bytes memory signature) private pure returns (address) {
@@ -1600,12 +1601,15 @@ contract InstanceController {
     }
 
     function _requireRootComponent(address registry, bytes32 root, bytes32 componentId) private view {
+        // slither-disable-next-line incorrect-equality
         if (root == bytes32(0)) revert RootZero();
         if (componentId == bytes32(0)) revert ZeroComponentId();
 
+        // slither-disable-next-line unused-return
         try IReleaseRegistryByRoot(registry).getByRoot(root) returns (
             bytes32 foundComponentId, uint64, bytes32, bytes32, bool
         ) {
+            // slither-disable-next-line incorrect-equality
             if (foundComponentId == bytes32(0)) revert RootUnknown();
             if (foundComponentId != componentId) revert ComponentMismatch();
         } catch {

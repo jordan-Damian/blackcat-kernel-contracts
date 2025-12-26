@@ -91,6 +91,7 @@ contract InstanceFactory {
         bytes32 genesisPolicyHash
     ) external returns (address) {
         address instance = _clone(implementation);
+        isInstance[instance] = true;
         InstanceController(instance)
             .initialize(
                 rootAuthority,
@@ -102,7 +103,6 @@ contract InstanceFactory {
                 genesisPolicyHash
             );
 
-        isInstance[instance] = true;
         emit InstanceCreated(instance, rootAuthority, upgradeAuthority, emergencyAuthority, msg.sender);
         return instance;
     }
@@ -139,6 +139,7 @@ contract InstanceFactory {
         emit SetupSignatureConsumed(rootAuthority, digest, msg.sender);
 
         address instance = _cloneDeterministic(implementation, salt);
+        isInstance[instance] = true;
         InstanceController(instance)
             .initialize(
                 rootAuthority,
@@ -150,7 +151,6 @@ contract InstanceFactory {
                 genesisPolicyHash
             );
 
-        isInstance[instance] = true;
         emit InstanceCreatedDeterministic(
             instance, salt, rootAuthority, upgradeAuthority, emergencyAuthority, msg.sender
         );

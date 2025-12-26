@@ -90,6 +90,7 @@ contract KernelAuthority {
         returns (bytes memory)
     {
         require(block.timestamp <= deadline, "KernelAuthority: expired");
+        require(target != address(0), "KernelAuthority: target=0");
 
         uint256 nonce_ = nonce;
         bytes32 structHash = keccak256(abi.encode(EXECUTE_TYPEHASH, target, value, keccak256(data), nonce_, deadline));
@@ -98,6 +99,7 @@ contract KernelAuthority {
         _checkSignatures(digest, signatures);
         nonce = nonce_ + 1;
 
+        // slither-disable-next-line arbitrary-send-eth
         (bool ok, bytes memory ret) = target.call{value: value}(data);
         if (!ok) {
             _revertWith(ret);
@@ -137,7 +139,10 @@ contract KernelAuthority {
         }
 
         for (uint256 i = 0; i < count; i++) {
-            (bool ok, bytes memory ret) = targets[i].call{value: values[i]}(data[i]);
+            address target = targets[i];
+            require(target != address(0), "KernelAuthority: target=0");
+            // slither-disable-next-line arbitrary-send-eth
+            (bool ok, bytes memory ret) = target.call{value: values[i]}(data[i]);
             if (!ok) {
                 _revertWith(ret);
             }

@@ -3,6 +3,7 @@
 # BlackCat Kernel Contracts
 
 [![CI](https://github.com/blackcatacademy/blackcat-kernel-contracts/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/blackcatacademy/blackcat-kernel-contracts/actions/workflows/ci.yml?query=branch%3Amain)
+[![Slither](https://github.com/blackcatacademy/blackcat-kernel-contracts/actions/workflows/slither.yml/badge.svg?branch=main)](https://github.com/blackcatacademy/blackcat-kernel-contracts/actions/workflows/slither.yml?query=branch%3Amain)
 
 EVM smart contracts that act as the **trust authority** for BlackCat installations.
 
@@ -15,11 +16,11 @@ This repository is intentionally **Solidity-only**. Runtime policy, config permi
 
 ## Contracts
 
-- `ReleaseRegistry`: global registry of “official” component releases (version → root hash + URI).
-- `InstanceFactory`: creates/clones `InstanceController` per install and runs the setup ceremony (CREATE + CREATE2).
-- `InstanceController`: per-install state machine (propose → stage → activate upgrades), pause/unpause, and history events.
-- `KernelAuthority` (optional): minimal EIP-712 threshold signer authority (multi-device by design without Safe dependency).
-- `ManifestStore` (optional): append-only on-chain blob store for manifests (“full detail” mode availability).
+- [`ReleaseRegistry`](src/ReleaseRegistry.sol): global registry of “official” component releases (version → root hash + URI).
+- [`InstanceFactory`](src/InstanceFactory.sol): creates/clones `InstanceController` per install and runs the setup ceremony (CREATE + CREATE2).
+- [`InstanceController`](src/InstanceController.sol): per-install state machine (propose → stage → activate upgrades), pause/unpause, and history events.
+- [`KernelAuthority`](src/KernelAuthority.sol) (optional): minimal EIP-712 threshold signer authority (multi-device by design without Safe dependency).
+- [`ManifestStore`](src/ManifestStore.sol) (optional): append-only on-chain blob store for manifests (“full detail” mode availability).
 
 ## Docs
 
@@ -33,6 +34,8 @@ This repository is intentionally **Solidity-only**. Runtime policy, config permi
 | [OPERATIONS](docs/OPERATIONS.md) | Operational flows (bots, incidents, upgrades) |
 | [AUDIT_CHECKLIST](docs/AUDIT_CHECKLIST.md) | Practical pre-production checklist |
 | [AUDIT_REPORT](docs/AUDIT_REPORT.md) | Internal audit notes + fixes |
+| [TEST_REPORT](docs/TEST_REPORT.md) | What the Foundry test suite validates |
+| [TEST_MATRIX](docs/TEST_MATRIX.md) | External/public API → test mapping |
 | [ROADMAP](docs/ROADMAP.md) | Planned work |
 
 ## Governance model (planned)
@@ -55,8 +58,12 @@ Dev stack: Foundry (`forge`).
 
 Run via Docker (recommended for consistent solc/forge versions):
 
-- Format: `docker run --rm -v "$PWD":/app -w /app --entrypoint forge ghcr.io/foundry-rs/foundry:latest fmt`
-- Test: `docker run --rm -v "$PWD":/app -w /app --entrypoint forge ghcr.io/foundry-rs/foundry:latest test`
+```bash
+export FOUNDRY_IMAGE="${FOUNDRY_IMAGE:-ghcr.io/foundry-rs/foundry:stable}"
+
+docker run --rm -v "$PWD":/app -w /app --entrypoint forge "$FOUNDRY_IMAGE" fmt
+docker run --rm -v "$PWD":/app -w /app --entrypoint forge "$FOUNDRY_IMAGE" test --via-ir
+```
 
 ## Deployment (Foundry)
 

@@ -15,19 +15,19 @@ Important:
 flowchart TB
   %% ===== Off-chain =====
   subgraph Offchain["Off-chain (blackcat-cli / blackcat-installer / blackcat-core)"]
-    Builder["Integrity builder\n- compute root\n- compute uriHash\n- compute policyHash\n- prepare ReleaseRegistry items"]
-    Signer["Authority signer\n(Safe / Ledger / KernelAuthority / EOA)"]
-    Relayer["Relayer / Operator\n(broadcast tx, pays gas)"]
-    Runtime["Runtime agent\n(verify on-chain state,\nblock unsafe writes in prod)"]
+    Builder["Integrity builder<br/>• compute root<br/>• compute uriHash<br/>• compute policyHash<br/>• prepare ReleaseRegistry items"]
+    Signer["Authority signer<br/>(Safe / Ledger / KernelAuthority / EOA)"]
+    Relayer["Relayer / Operator<br/>(broadcast tx, pays gas)"]
+    Runtime["Runtime agent<br/>(verify on-chain state,<br/>block unsafe writes in prod)"]
   end
 
   %% ===== On-chain =====
   subgraph Onchain["On-chain (EVM)"]
-    RR["ReleaseRegistry\n(global)\n- publish official roots\n- revoke roots"]
-    MS["ManifestStore (optional)\n- chunked blobs\n- finalize"]
-    IF["InstanceFactory\n(global)\n- CREATE2 bootstrap\n- emits setup receipt"]
-    IC["InstanceController\n(per install)\n- active state\n- upgrades\n- incidents\n- attestations"]
-    KA["KernelAuthority (optional)\n- threshold signer\n- EIP-1271"]
+    RR["ReleaseRegistry<br/>(global)<br/>• publish official roots<br/>• revoke roots"]
+    MS["ManifestStore (optional)<br/>• chunked blobs<br/>• finalize"]
+    IF["InstanceFactory<br/>(global)<br/>• CREATE2 bootstrap<br/>• emits setup receipt"]
+    IC["InstanceController<br/>(per install)<br/>• active state<br/>• upgrades<br/>• incidents<br/>• attestations"]
+    KA["KernelAuthority (optional)<br/>• threshold signer<br/>• EIP-1271"]
   end
 
   Builder -->|root uriHash metaHash| RR
@@ -71,7 +71,7 @@ The Trust Kernel cannot “sandbox” a server by itself. Instead:
 - `InstanceController` stores the *commitments* (what must be true),
 - the runtime enforces the policy (what is allowed to happen) and fails closed in production.
 
-See also: `blackcat-kernel-contracts/docs/POLICY_ENFORCEMENT.md`.
+See also: [POLICY_ENFORCEMENT](POLICY_ENFORCEMENT.md).
 
 ### Boot sequence (production posture)
 
@@ -456,7 +456,7 @@ flowchart TB
   SystemPath --> Checks
   AppPath --> Checks
 
-  Checks["Permission checks\n- not world-writable\n- owned by expected user\n- writable only when needed\n- atomic writes\n- fsync where supported"] --> Write["Write runtime config"]
+  Checks["Permission checks<br/>• not world-writable<br/>• owned by expected user<br/>• writable only when needed<br/>• atomic writes<br/>• fsync where supported"] --> Write["Write runtime config"]
   Write --> Hash["sha256(canonical bytes)"]
   Hash --> OptionalAttest["(optional, recommended)\nPin + lock on-chain via attestation"]
 ```

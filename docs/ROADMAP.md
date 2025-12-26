@@ -4,10 +4,10 @@ This roadmap tracks the contract layer of the BlackCat “trust kernel” (Web3 
 
 ## Stage 0 — Specification (current)
 - Threat model and invariants (what must never be possible).
-  - See: `blackcat-kernel-contracts/docs/THREAT_MODEL.md`
-  - Diagrams: `blackcat-kernel-contracts/docs/SECURITY_FLOWS.md`
+  - See: [THREAT_MODEL](THREAT_MODEL.md)
+  - Diagrams: [SECURITY_FLOWS](SECURITY_FLOWS.md)
 - Audit checklist (pre-prod review notes).
-  - See: `blackcat-kernel-contracts/docs/AUDIT_CHECKLIST.md`
+  - See: [AUDIT_CHECKLIST](AUDIT_CHECKLIST.md)
 - Canonical hashing rules for “release root” and “installed state root” (shared with `blackcat-integrity`).
 - Contract interfaces and event schema:
   - `ReleaseRegistry` (official releases),

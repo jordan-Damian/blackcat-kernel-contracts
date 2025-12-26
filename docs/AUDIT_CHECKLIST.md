@@ -14,12 +14,14 @@ Non-goals:
 - RPC quorum logic (off-chain).
 
 Related:
-- Diagrams: `blackcat-kernel-contracts/docs/SECURITY_FLOWS.md`
-- Spec: `blackcat-kernel-contracts/docs/SPEC.md`
+- Diagrams: [SECURITY_FLOWS](SECURITY_FLOWS.md)
+- Spec: [SPEC](SPEC.md)
 
 ## Global checks (apply to all contracts)
 
 - Compiler version pinned (`0.8.24`) and optimizer enabled.
+- Static analysis run (Slither) and findings triaged before production:
+  - `slither . --exclude-dependencies --filter-paths "test|script|out|broadcast|cache|deployments"`
 - No unbounded loops reachable by untrusted callers.
 - All ECDSA recoveries enforce low-`s` to prevent malleability.
 - EIP-712 domain separators include `(name, version, chainId, verifyingContract)`.
@@ -165,4 +167,3 @@ Files:
 - Fail-closed in production:
   - if on-chain state cannot be verified, deny security-critical writes and upgrades.
 - Keep authority keys isolated (multi-device); avoid single-key authorities for prod.
-

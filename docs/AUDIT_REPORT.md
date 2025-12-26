@@ -16,7 +16,12 @@ Tooling / checks used:
 
 ## Summary
 
-- All tests pass (including new regression tests added during this audit).
+- All Foundry tests pass (including stateful fuzz/regression suites).
+- CI enforces:
+  - `forge fmt --check`
+  - `forge test --via-ir`
+  - `forge build --via-ir --skip test --skip script --sizes` (EIP-170)
+  - Slither (static analysis) in warning-only mode
 - `InstanceController` remains under the EIP-170 runtime limit:
   - Runtime size: **24,337 bytes**
   - Margin: **239 bytes**
@@ -67,6 +72,37 @@ Action (implemented):
 - Added an explicit comment + lint suppression:
   - `forge-lint: disable-next-line(unsafe-typecast)`
 
+### LOW — InstanceFactory reentrancy warning (benign) hardened by moving `isInstance[...] = true` before `initialize(...)`
+
+Contract: `blackcat-kernel-contracts/src/InstanceFactory.sol`
+
+Issue:
+- Slither flags a reentrancy pattern because state (`isInstance[instance]`) was written after calling `InstanceController.initialize(...)`.
+
+Impact:
+- Low. The instance is a freshly deployed clone and the initializer is expected to be trusted; however, this is easy to harden and removes static-analysis ambiguity.
+
+Fix (implemented):
+- Set `isInstance[instance] = true` before calling `initialize(...)`.
+  - If `initialize(...)` reverts, the entire transaction reverts and the mapping update is rolled back.
+
+### NOTE — KernelAuthority “arbitrary-send-eth” is intentional, but now blocks `target=address(0)`
+
+Contract: `blackcat-kernel-contracts/src/KernelAuthority.sol`
+
+Issue:
+- Slither flags `execute(...)` / `executeBatch(...)` as “sends eth to arbitrary user” because they forward calls with `value`.
+
+Design rationale:
+- `KernelAuthority` is a generic transaction executor (multisig-like).
+- Safety comes from:
+  - threshold signature validation,
+  - nonce consumption before the external call,
+  - deadline-based expiry.
+
+Hardening (implemented):
+- Reject `target == address(0)` to avoid accidental burns/misconfig.
+
 ## Explicit non-goals / remaining risks
 
 These contracts enforce on-chain trust transitions and provide authorized paths, but they do not (and cannot) eliminate:
@@ -83,4 +119,3 @@ These contracts enforce on-chain trust transitions and provide authorized paths,
   - signature validation across mixed EOA + EIP-1271 authority configurations.
 - Decide and document “production baseline” authority mode (EOA vs `KernelAuthority` vs Safe) and required thresholds per operation.
 - Keep `InstanceController` EIP-170 margin in mind for any future additions (239B remaining as of this report).
-

@@ -4,3 +4,4 @@
 /broadcast/
 /deployments/
 .env
+slither-report.json

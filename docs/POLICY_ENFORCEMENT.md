@@ -9,9 +9,9 @@ Important:
 - Enforcing “you must not call X” happens **off-chain**, by ensuring sensitive operations can only succeed when the runtime’s policy checks pass.
 
 Related:
-- `blackcat-kernel-contracts/docs/SPEC.md`
-- `blackcat-kernel-contracts/docs/SECURITY_FLOWS.md`
-- `blackcat-kernel-contracts/docs/THREAT_MODEL.md`
+- [SPEC](SPEC.md)
+- [SECURITY_FLOWS](SECURITY_FLOWS.md)
+- [THREAT_MODEL](THREAT_MODEL.md)
 
 ## What the chain stores vs what the runtime enforces
 
@@ -36,16 +36,16 @@ The “back controller” is a classic **Policy Enforcement Point (PEP)**:
 ```mermaid
 flowchart TB
   subgraph Server["Server runtime"]
-    App["Application code\n(PHP, JS, workers)"]
-    PEP["Back Controller / PEP\n(blackcat-core + blackcat-config)\n- loads policy\n- verifies chain\n- enforces rules"]
-    Secrets["Secrets boundary\n(keys, decrypt, KMS/HSM)"]
-    DB["Database (localhost only)\n+ encrypted fields"]
+    App["Application code<br/>(PHP, JS, workers)"]
+    PEP["Back Controller / PEP<br/>(blackcat-core + blackcat-config)<br/>• loads policy<br/>• verifies chain<br/>• enforces rules"]
+    Secrets["Secrets boundary<br/>(keys, decrypt, KMS/HSM)"]
+    DB["Database (localhost only)<br/>+ encrypted fields"]
   end
 
   subgraph Chain["EVM chain"]
-    IC["InstanceController\n(activeRoot/uriHash/policyHash, paused)"]
-    RR["ReleaseRegistry\n(optional trust list)"]
-    MS["ManifestStore\n(optional policy/manifest bytes)"]
+    IC["InstanceController<br/>(activeRoot/uriHash/policyHash, paused)"]
+    RR["ReleaseRegistry<br/>(optional trust list)"]
+    MS["ManifestStore<br/>(optional policy/manifest bytes)"]
   end
 
   App -->|all sensitive ops| PEP
