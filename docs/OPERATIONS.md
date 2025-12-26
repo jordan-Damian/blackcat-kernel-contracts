@@ -9,6 +9,10 @@ Important:
 
 ## Deploy
 
+Build notes:
+- `InstanceController` is near the EIP-170 runtime limit, so this repo compiles “size-first”.
+- See: `blackcat-kernel-contracts/docs/BUILD_AND_VERIFICATION.md`
+
 Recommended baseline deployment:
 - `ReleaseRegistry` (global, owned by Safe)
 - `InstanceFactory` (points to ReleaseRegistry)
@@ -43,6 +47,9 @@ Revocation:
   - Foundry helper: `RevokeReleaseBatchAuthorized.s.sol` reads ABI-encoded `RevokeBatchItem[]` from `BLACKCAT_RELEASE_REVOKE_BATCH_ITEMS_PATH`.
 
 ## Create instance (per install)
+
+Non-deterministic (simple; dev/dry-run):
+- `CreateInstance.s.sol` uses `InstanceFactory.createInstance(...)`.
 
 Use `CreateInstanceDeterministic.s.sol` with a stable `salt` so the instance address is predictable via `predictInstanceAddress`.
 
@@ -179,3 +186,8 @@ Upload a blob (expensive):
 Consumers must:
 - reassemble the blob and validate its `sha256` off-chain
 - treat on-chain availability as an availability layer, not as “automatic trust”
+
+## Dry run (Edgen)
+
+Step-by-step dry run against Edgen Chain:
+- `blackcat-kernel-contracts/docs/DRY_RUN_EDGEN.md`
