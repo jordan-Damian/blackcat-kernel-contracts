@@ -75,6 +75,10 @@ Rolling upgrades:
 Reporter check-in (direct):
 - `CheckIn.s.sol`
 
+Permissionless bot guardrails (optional):
+- `PauseIfStale.s.sol` calls `pauseIfStale()` (requires `maxCheckInAgeSec != 0`)
+- `PauseIfActiveRootUntrusted.s.sol` calls `pauseIfActiveRootUntrusted()` (requires `releaseRegistry != 0`)
+
 Incident reporting (direct; pauses the controller):
 - `ReportIncident.s.sol`
 
@@ -142,9 +146,29 @@ Other recommended settings:
 - Lock upgrade timelock (irreversible): `LockMinUpgradeDelay.s.sol`
 - Toggle auto-pause on bad check-in: `SetAutoPauseOnBadCheckIn.s.sol`
 - Lock auto-pause (irreversible): `LockAutoPauseOnBadCheckIn.s.sol`
+- Set max check-in age: `SetMaxCheckInAgeSec.s.sol` (recommended prod: `60`–`300`)
+- Lock max check-in age (irreversible): `LockMaxCheckInAgeSec.s.sol`
 - Emergency unpause policy: `SetEmergencyCanUnpause.s.sol` (recommended prod default: `0`)
 - Lock emergency unpause policy (irreversible): `LockEmergencyCanUnpause.s.sol`
 - Clear reporter authority: `ClearReporterAuthority.s.sol`
+
+## Production finalization (one-shot)
+
+If you want to set and lock the key “production knobs” in one transaction, use:
+- `FinalizeProduction.s.sol`
+
+This will set (if not already set) and then lock:
+- `releaseRegistry`
+- `expectedComponentId`
+- `minUpgradeDelaySec`
+- `maxCheckInAgeSec`
+- `autoPauseOnBadCheckIn`
+- `compatibilityWindowSec`
+- `emergencyCanUnpause`
+
+Notes:
+- `maxCheckInAgeSec` must be non-zero for `FinalizeProduction` (the function locks it as part of the flow).
+- If a knob is already locked, `FinalizeProduction` requires the passed value to match, otherwise it reverts (to prevent silently-finalizing with unexpected config).
 
 ## ManifestStore (optional “full detail” availability)
 
