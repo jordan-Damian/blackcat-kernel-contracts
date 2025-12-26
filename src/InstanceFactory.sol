@@ -200,6 +200,8 @@ contract InstanceFactory {
 
         (bool ok, bytes memory ret) =
             signer.staticcall(abi.encodeWithSignature("isValidSignature(bytes32,bytes)", digest, signature));
+        // Casting to `bytes4` is safe because we check `ret.length >= 4` first.
+        // forge-lint: disable-next-line(unsafe-typecast)
         return ok && ret.length >= 4 && bytes4(ret) == EIP1271_MAGICVALUE;
     }
 

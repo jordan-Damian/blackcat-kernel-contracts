@@ -151,6 +151,44 @@ contract InstanceControllerTest is TestBase {
         c.setPausedAuthorized(true, false, deadline, unpauseSig);
     }
 
+    function test_setPausedAuthorized_accepts_kernelAuthority_emergency_signature() public {
+        uint256 pk1 = 0xA11CE;
+        uint256 pk2 = 0xB0B;
+        address a1 = vm.addr(pk1);
+        address a2 = vm.addr(pk2);
+
+        address[] memory signers = new address[](2);
+        if (a1 < a2) {
+            signers[0] = a1;
+            signers[1] = a2;
+        } else {
+            signers[0] = a2;
+            signers[1] = a1;
+        }
+        KernelAuthority emergencyAuth = new KernelAuthority(signers, 2);
+
+        InstanceFactory f = new InstanceFactory(address(0));
+        InstanceController c = InstanceController(
+            f.createInstance(root, upgrader, address(emergencyAuth), genesisRoot, genesisUriHash, genesisPolicyHash)
+        );
+
+        uint256 deadline = block.timestamp + 3600;
+        bytes32 digest = _digestSetPaused(c, false, true, deadline);
+
+        bytes[] memory sigs = new bytes[](2);
+        if (a1 < a2) {
+            sigs[0] = _sign(pk1, digest);
+            sigs[1] = _sign(pk2, digest);
+        } else {
+            sigs[0] = _sign(pk2, digest);
+            sigs[1] = _sign(pk1, digest);
+        }
+        bytes memory packed = abi.encode(sigs);
+
+        c.setPausedAuthorized(false, true, deadline, packed);
+        assertTrue(c.paused(), "should be paused");
+    }
+
     function test_setPausedAuthorized_rejects_emergency_unpause_when_disabled() public {
         uint256 emergencyPk = 0xBEEF;
         address emergencyAddr = vm.addr(emergencyPk);
@@ -1285,6 +1323,51 @@ contract InstanceControllerTest is TestBase {
 
         vm.expectRevert(abi.encodeWithSelector(InstanceController.InvalidIncidentSignature.selector));
         c.reportIncidentAuthorized(incidentHash, deadline, sig);
+    }
+
+    function test_reportIncidentAuthorized_accepts_kernelAuthority_reporter_signature() public {
+        uint256 pk1 = 0xA11CE;
+        uint256 pk2 = 0xB0B;
+        address a1 = vm.addr(pk1);
+        address a2 = vm.addr(pk2);
+
+        address[] memory signers = new address[](2);
+        if (a1 < a2) {
+            signers[0] = a1;
+            signers[1] = a2;
+        } else {
+            signers[0] = a2;
+            signers[1] = a1;
+        }
+        KernelAuthority reporterAuth = new KernelAuthority(signers, 2);
+
+        InstanceFactory f = new InstanceFactory(address(0));
+        InstanceController c = InstanceController(
+            f.createInstance(root, upgrader, emergency, genesisRoot, genesisUriHash, genesisPolicyHash)
+        );
+
+        vm.prank(root);
+        c.startReporterAuthorityTransfer(address(reporterAuth));
+        vm.prank(address(reporterAuth));
+        c.acceptReporterAuthority();
+
+        bytes32 incidentHash = keccak256("incident-auth-ka-reporter");
+        uint256 deadline = block.timestamp + 3600;
+        bytes32 digest = _digestReportIncident(c, incidentHash, deadline);
+
+        bytes[] memory sigs = new bytes[](2);
+        if (a1 < a2) {
+            sigs[0] = _sign(pk1, digest);
+            sigs[1] = _sign(pk2, digest);
+        } else {
+            sigs[0] = _sign(pk2, digest);
+            sigs[1] = _sign(pk1, digest);
+        }
+        bytes memory packed = abi.encode(sigs);
+
+        c.reportIncidentAuthorized(incidentHash, deadline, packed);
+        assertTrue(c.paused(), "controller should pause on authorized incident");
+        assertEq(c.lastIncidentBy(), address(reporterAuth), "incident by mismatch");
     }
 
     function _hashTypedData(InstanceController c, bytes32 structHash) private view returns (bytes32) {

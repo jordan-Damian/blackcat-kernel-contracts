@@ -1442,6 +1442,8 @@ contract InstanceController {
         }
 
         (bool ok, bytes memory ret) = signer.staticcall(abi.encodeWithSelector(EIP1271_MAGICVALUE, digest, signature));
+        // Casting to `bytes4` is safe because we check `ret.length >= 4` first.
+        // forge-lint: disable-next-line(unsafe-typecast)
         return ok && ret.length >= 4 && bytes4(ret) == EIP1271_MAGICVALUE;
     }
 
@@ -1469,7 +1471,8 @@ contract InstanceController {
             s = bytes32(uint256(vs) & EIP2098_S_MASK);
             v = uint8((uint256(vs) >> 255) + 27);
         } else {
-            revert BadSignatureLength();
+            // Return `address(0)` instead of reverting so multi-authority resolvers can keep trying other roles.
+            return address(0);
         }
         if (v != 27 && v != 28) revert BadV();
         if (uint256(s) > SECP256K1N_HALF) revert BadS();
