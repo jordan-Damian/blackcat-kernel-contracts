@@ -37,7 +37,9 @@ contract CreateInstance {
 
         vm.startBroadcast(deployerPk);
         instance = InstanceFactory(factory)
-            .createInstance(rootAuthority, upgradeAuthority, emergencyAuthority, genesisRoot, genesisUriHash, genesisPolicyHash);
+            .createInstance(
+                rootAuthority, upgradeAuthority, emergencyAuthority, genesisRoot, genesisUriHash, genesisPolicyHash
+            );
         vm.stopBroadcast();
     }
 }

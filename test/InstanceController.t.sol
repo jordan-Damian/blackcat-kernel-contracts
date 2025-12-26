@@ -267,9 +267,8 @@ contract InstanceControllerTest is TestBase {
         assertEq(c.rootAuthorityTransferNonce(), 1, "root transfer nonce should increment");
 
         uint256 deadline = block.timestamp + 3600;
-        bytes32 digest = _digestAcceptAuthority(
-            c, ROLE_ROOT_AUTHORITY, newRootAddr, c.rootAuthorityTransferNonce(), deadline
-        );
+        bytes32 digest =
+            _digestAcceptAuthority(c, ROLE_ROOT_AUTHORITY, newRootAddr, c.rootAuthorityTransferNonce(), deadline);
         bytes memory sig = _sign(newRootPk, digest);
 
         c.acceptRootAuthorityAuthorized(newRootAddr, deadline, sig);
@@ -295,9 +294,8 @@ contract InstanceControllerTest is TestBase {
         c.startRootAuthorityTransfer(newRootAddr);
 
         uint256 deadline = block.timestamp + 3600;
-        bytes32 digest = _digestAcceptAuthority(
-            c, ROLE_ROOT_AUTHORITY, newRootAddr, c.rootAuthorityTransferNonce(), deadline
-        );
+        bytes32 digest =
+            _digestAcceptAuthority(c, ROLE_ROOT_AUTHORITY, newRootAddr, c.rootAuthorityTransferNonce(), deadline);
         bytes memory sig = _sign(newRootPk, digest);
 
         vm.prank(rootAddr);
@@ -1403,9 +1401,7 @@ contract InstanceControllerTest is TestBase {
         uint256 deadline
     ) private view returns (bytes32) {
         bytes32 structHash = keccak256(
-            abi.encode(
-                CHECKIN_TYPEHASH, observedRoot, observedUriHash, observedPolicyHash, c.reporterNonce(), deadline
-            )
+            abi.encode(CHECKIN_TYPEHASH, observedRoot, observedUriHash, observedPolicyHash, c.reporterNonce(), deadline)
         );
         return _hashTypedData(c, structHash);
     }
@@ -1465,7 +1461,11 @@ contract InstanceControllerTest is TestBase {
         return _hashTypedData(c, structHash);
     }
 
-    function _digestRollbackToCompatibilityState(InstanceController c, uint256 deadline) private view returns (bytes32) {
+    function _digestRollbackToCompatibilityState(InstanceController c, uint256 deadline)
+        private
+        view
+        returns (bytes32)
+    {
         (bytes32 compatRoot, bytes32 compatUriHash, bytes32 compatPolicyHash, uint64 until) = c.compatibilityState();
         bytes32 structHash = keccak256(
             abi.encode(

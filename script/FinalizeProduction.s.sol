@@ -37,15 +37,16 @@ contract FinalizeProduction {
         bool emergencyCanUnpause = vm.envUint("BLACKCAT_EMERGENCY_CAN_UNPAUSE") != 0;
 
         vm.startBroadcast(pk);
-        InstanceController(controller).finalizeProduction(
-            releaseRegistry,
-            expectedComponentId,
-            minUpgradeDelaySec,
-            maxCheckInAgeSec,
-            autoPauseOnBadCheckIn,
-            compatibilityWindowSec,
-            emergencyCanUnpause
-        );
+        InstanceController(controller)
+            .finalizeProduction(
+                releaseRegistry,
+                expectedComponentId,
+                minUpgradeDelaySec,
+                maxCheckInAgeSec,
+                autoPauseOnBadCheckIn,
+                compatibilityWindowSec,
+                emergencyCanUnpause
+            );
         vm.stopBroadcast();
     }
 }

@@ -921,7 +921,9 @@ contract InstanceController {
         uint64 compatibilityWindowSec_,
         bool emergencyCanUnpause_
     ) external onlyRootAuthority {
-        if (releaseRegistryLocked && releaseRegistry != releaseRegistry_) revert FinalizeMismatch();
+        if (releaseRegistryLocked && releaseRegistry != releaseRegistry_) {
+            revert FinalizeMismatch();
+        }
         if (expectedComponentIdLocked && expectedComponentId != expectedComponentId_) revert FinalizeMismatch();
         if (minUpgradeDelayLocked && minUpgradeDelaySec != minUpgradeDelaySec_) revert FinalizeMismatch();
         if (maxCheckInAgeLocked && maxCheckInAgeSec != maxCheckInAgeSec_) revert FinalizeMismatch();
@@ -1281,7 +1283,9 @@ contract InstanceController {
     {
         UpgradeProposal memory upgrade = pendingUpgrade;
         if (upgrade.root == bytes32(0)) revert NoPendingUpgrade();
-        if (upgrade.root != root || upgrade.uriHash != uriHash || upgrade.policyHash != policyHash) revert PendingMismatch();
+        if (upgrade.root != root || upgrade.uriHash != uriHash || upgrade.policyHash != policyHash) {
+            revert PendingMismatch();
+        }
         delete pendingUpgrade;
         emit UpgradeCanceled(msg.sender);
     }
@@ -1297,7 +1301,9 @@ contract InstanceController {
 
         UpgradeProposal memory upgrade = pendingUpgrade;
         if (upgrade.root == bytes32(0)) revert NoPendingUpgrade();
-        if (upgrade.root != root || upgrade.uriHash != uriHash || upgrade.policyHash != policyHash) revert PendingMismatch();
+        if (upgrade.root != root || upgrade.uriHash != uriHash || upgrade.policyHash != policyHash) {
+            revert PendingMismatch();
+        }
 
         bytes32 structHash = keccak256(
             abi.encode(
@@ -1328,7 +1334,9 @@ contract InstanceController {
     function activateUpgradeExpected(bytes32 root, bytes32 uriHash, bytes32 policyHash) external onlyRootAuthority {
         UpgradeProposal memory upgrade = pendingUpgrade;
         if (upgrade.root == bytes32(0)) revert NoPendingUpgrade();
-        if (upgrade.root != root || upgrade.uriHash != uriHash || upgrade.policyHash != policyHash) revert PendingMismatch();
+        if (upgrade.root != root || upgrade.uriHash != uriHash || upgrade.policyHash != policyHash) {
+            revert PendingMismatch();
+        }
         _activateUpgrade(upgrade);
     }
 
@@ -1343,7 +1351,9 @@ contract InstanceController {
 
         UpgradeProposal memory upgrade = pendingUpgrade;
         if (upgrade.root == bytes32(0)) revert NoPendingUpgrade();
-        if (upgrade.root != root || upgrade.uriHash != uriHash || upgrade.policyHash != policyHash) revert PendingMismatch();
+        if (upgrade.root != root || upgrade.uriHash != uriHash || upgrade.policyHash != policyHash) {
+            revert PendingMismatch();
+        }
 
         bytes32 structHash = keccak256(
             abi.encode(
