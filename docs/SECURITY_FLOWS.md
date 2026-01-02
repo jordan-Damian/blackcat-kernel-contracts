@@ -6,7 +6,7 @@ what is expected to happen, what must *not* happen, and what the contracts enfor
 Diagrams use **Mermaid** (rendered by GitHub).
 
 Important:
-- These contracts are **not audited**.
+- Security status: **not independently audited yet** (see: [SECURITY_STATUS](SECURITY_STATUS.md)).
 - Off-chain enforcement (fail-closed runtime behavior, multi-RPC quorum, filesystem hardening) lives in `blackcat-core` + `blackcat-config`.
 
 ## Component Map

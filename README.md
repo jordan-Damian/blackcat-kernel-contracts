@@ -91,4 +91,4 @@ For a complete operator-oriented guide (including authority rotation, guard/bot 
 - Manifest blobs: [UploadManifestBlob.s.sol](script/UploadManifestBlob.s.sol)
 - Audit commitments (optional): [DeployAuditCommitmentHub.s.sol](script/DeployAuditCommitmentHub.s.sol), [PostAuditCommit.s.sol](script/PostAuditCommit.s.sol)
 
-**Note:** contracts are not audited. Do not use in production until reviewed.
+**Security status (2026-01-02):** not independently audited yet. Continuous checks: Foundry tests + Slither (High/Medium=0) + rotating AI audits (daily). Internal “production candidate” target: **2026-02-01** (conditional). See: [SECURITY_STATUS](docs/SECURITY_STATUS.md).

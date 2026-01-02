@@ -1458,6 +1458,20 @@ contract BlackCatInstanceControllerV1 {
         // slither-disable-end incorrect-equality
     }
 
+    /// @dev Lenient variant for multi-authority resolution:
+    /// - never reverts on malformed ECDSA (returns `false` instead),
+    /// - still supports EIP-1271 contract signers.
+    function _isValidSignatureNowLenient(address signer, bytes32 digest, bytes memory signature)
+        private
+        view
+        returns (bool)
+    {
+        if (signer.code.length == 0) {
+            return _recoverOrZero(digest, signature) == signer;
+        }
+        return _isValidSignatureNow(signer, digest, signature);
+    }
+
     function _recover(bytes32 digest, bytes memory signature) private pure returns (address) {
         bytes32 r;
         bytes32 s;
@@ -1491,6 +1505,39 @@ contract BlackCatInstanceControllerV1 {
         address recovered = ecrecover(digest, v, r, s);
         if (recovered == address(0)) revert BadSignature();
         return recovered;
+    }
+
+    function _recoverOrZero(bytes32 digest, bytes memory signature) private pure returns (address) {
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+        if (signature.length == 65) {
+            assembly {
+                r := mload(add(signature, 0x20))
+                s := mload(add(signature, 0x40))
+                v := byte(0, mload(add(signature, 0x60)))
+            }
+
+            if (v < 27) {
+                v += 27;
+            }
+        } else if (signature.length == 64) {
+            bytes32 vs;
+            assembly {
+                r := mload(add(signature, 0x20))
+                vs := mload(add(signature, 0x40))
+            }
+
+            s = bytes32(uint256(vs) & EIP2098_S_MASK);
+            v = uint8((uint256(vs) >> 255) + 27);
+        } else {
+            return address(0);
+        }
+
+        if (v != 27 && v != 28) return address(0);
+        if (uint256(s) > SECP256K1N_HALF) return address(0);
+
+        return ecrecover(digest, v, r, s);
     }
 
     function _recordIncident(address by, bytes32 incidentHash) private {
@@ -1544,17 +1591,17 @@ contract BlackCatInstanceControllerV1 {
 
     function _resolveIncidentSigner(bytes32 digest, bytes memory signature) private view returns (address) {
         address root = rootAuthority;
-        if (_isValidSignatureNow(root, digest, signature)) {
+        if (_isValidSignatureNowLenient(root, digest, signature)) {
             return root;
         }
 
         address emergency = emergencyAuthority;
-        if (_isValidSignatureNow(emergency, digest, signature)) {
+        if (_isValidSignatureNowLenient(emergency, digest, signature)) {
             return emergency;
         }
 
         address reporter = reporterAuthority;
-        if (reporter != address(0) && _isValidSignatureNow(reporter, digest, signature)) {
+        if (reporter != address(0) && _isValidSignatureNowLenient(reporter, digest, signature)) {
             return reporter;
         }
 
@@ -1563,12 +1610,12 @@ contract BlackCatInstanceControllerV1 {
 
     function _resolvePauseSigner(bytes32 digest, bytes memory signature) private view returns (address) {
         address root = rootAuthority;
-        if (_isValidSignatureNow(root, digest, signature)) {
+        if (_isValidSignatureNowLenient(root, digest, signature)) {
             return root;
         }
 
         address emergency = emergencyAuthority;
-        if (_isValidSignatureNow(emergency, digest, signature)) {
+        if (_isValidSignatureNowLenient(emergency, digest, signature)) {
             return emergency;
         }
 

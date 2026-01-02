@@ -11,7 +11,7 @@ Chain:
 
 Important:
 - This is a **dry run**. Do not reuse production keys.
-- `KernelAuthority` is custom security code and is **not audited**.
+- `KernelAuthority` is custom security code and is **not independently audited yet** (see: [SECURITY_STATUS](SECURITY_STATUS.md)).
 - `InstanceController` is near EIP-170 size limit — always run the size check before deploying.
 
 ## 0) Prereqs
@@ -307,4 +307,3 @@ docker run --rm -v "$PWD":/app -w /app --entrypoint bash "$FOUNDRY_IMAGE" -lc \
 ```
 
 At this point the controller should be locked-down and ready for additional flows (pause/check-in/upgrade).
-

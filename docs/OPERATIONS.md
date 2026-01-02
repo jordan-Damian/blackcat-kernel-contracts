@@ -3,7 +3,7 @@
 This file documents **operator flows** for deploying and operating the Trust Kernel contracts.
 
 Important:
-- These contracts are **not audited**.
+- Security status: **not independently audited yet** (see: [SECURITY_STATUS](SECURITY_STATUS.md)).
 - For production, use multisig authorities (Safe) and treat private keys as extremely sensitive.
 - Do not share private keys/seed phrases in issues or logs.
 

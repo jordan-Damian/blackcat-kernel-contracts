@@ -3,7 +3,7 @@
 This document describes the **threat model** for the BlackCat Trust Kernel.
 
 Important:
-- These contracts are **not audited**.
+- Security status: **not independently audited yet** (see: [SECURITY_STATUS](SECURITY_STATUS.md)).
 - The Trust Kernel is a *system*: on-chain contracts + off-chain runtime enforcement (`blackcat-core`) + secure config handling (`blackcat-config`).
 
 Related:

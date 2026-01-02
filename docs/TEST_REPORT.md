@@ -11,7 +11,7 @@ Scope:
 - `src/AuditCommitmentHub.sol`
 
 Note:
-- The contracts are **not audited**. This is an internal engineering test record, not a formal audit.
+- Security status: **not independently audited yet** (see: [SECURITY_STATUS](SECURITY_STATUS.md)). This is an internal engineering test record, not a formal audit.
 - `InstanceController` is close to **EIP-170** size limits; builds use `--via-ir` and `optimizer_runs = 1`. See `docs/BUILD_AND_VERIFICATION.md`.
 
 ## How to run locally

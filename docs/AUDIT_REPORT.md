@@ -26,8 +26,8 @@ Tooling / checks used:
   - Slither (static analysis) with **High=0** and **Medium=0**
 - Slither severity counts (local run): **High=0 Medium=0 Low=39 Info=30**
 - `BlackCatInstanceControllerV1` (per-install controller implementation) remains under the EIP-170 runtime limit:
-  - Runtime size: **24,337 bytes**
-  - Margin: **239 bytes**
+  - Runtime size: **24,572 bytes**
+  - Margin: **4 bytes**
 
 ## Findings
 
@@ -42,23 +42,27 @@ Affected paths:
 Issue:
 - `_resolvePauseSigner` / `_resolveIncidentSigner` try authorities in order (root → emergency → reporter).
 - When the **first checked authority is an EOA**, `_isValidSignatureNow` falls back to `_recover(...)`.
-- Previously, `_recover(...)` reverted on signature lengths other than 64/65.
-- This breaks legitimate use-cases where the **intended signer is an EIP-1271 contract** (e.g., `KernelAuthority`) and the signature blob is ABI-encoded (longer than 65 bytes):
+- Historically, this could abort multi-authority resolution if the signature blob was malformed ECDSA for the first EOA (e.g., ABI-encoded EIP-1271 signature bytes, invalid `v/s`, etc.).
+- This breaks legitimate use-cases where the **intended signer is an EIP-1271 contract** (e.g., `KernelAuthority`) but an earlier role is an EOA:
   - Example: root is EOA, emergency is `KernelAuthority`, caller provides a valid EIP-1271 signature for emergency.
-  - Result before fix: root check reverts (`BadSignatureLength`) and prevents reaching the emergency check.
+  - Result before fix: root check could revert and prevent reaching the emergency check.
 
 Impact:
 - Prevents “multi-device by design” setups where some roles are EOAs and others are EIP-1271 contracts.
 - In practice, this blocks using `KernelAuthority` (or other EIP-1271 signers) for emergency/reporting unless the earlier role(s) are also contract authorities.
 
 Fix (implemented):
-- In `InstanceController._recover(...)`, return `address(0)` on unsupported signature length instead of reverting.
+- Introduced a lenient validation path used only by multi-authority resolvers:
+  - `InstanceController._recoverOrZero(...)` (never reverts, returns `address(0)` on invalid ECDSA),
+  - `InstanceController._isValidSignatureNowLenient(...)` (EOA: uses `_recoverOrZero`, contract: uses EIP-1271).
 - This lets the resolver continue to the next authority role and properly validate EIP-1271 signatures.
 
 Regression tests (added):
 - `test/InstanceController.t.sol`:
   - `test_setPausedAuthorized_accepts_kernelAuthority_emergency_signature`
   - `test_reportIncidentAuthorized_accepts_kernelAuthority_reporter_signature`
+- `test/InstanceController.SignatureResolution.t.sol`:
+  - `test_setPausedAuthorized_accepts_eip1271_signature_even_if_malformed_ecdsa_for_root`
 
 ### INFO — `bytes4(ret)` cast in EIP-1271 checks
 
@@ -167,4 +171,4 @@ These contracts enforce on-chain trust transitions and provide authorized paths,
   - registry enforcement invariants when `releaseRegistryLocked/expectedComponentIdLocked` are set,
   - signature validation across mixed EOA + EIP-1271 authority configurations.
 - Decide and document “production baseline” authority mode (EOA vs `KernelAuthority` vs Safe) and required thresholds per operation.
-- Keep `InstanceController` EIP-170 margin in mind for any future additions (239B remaining as of this report).
+- Keep `InstanceController` EIP-170 margin in mind for any future additions (**4 bytes remaining** as of this report).
